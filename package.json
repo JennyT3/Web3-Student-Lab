@@ -1,0 +1,18 @@
+{
+  "name": "web3-student-lab-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root configuration for Web3 Student Lab monorepo",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.5",
+    "lint-staged": "^15.2.10"
+  },
+  "lint-staged": {
+    "contracts/**/*.rs": [
+      "cargo clippy --manifest-path contracts/Cargo.toml -- -D warnings"
+    ]
+  }
+}

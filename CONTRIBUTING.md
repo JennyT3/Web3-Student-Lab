@@ -12,8 +12,16 @@ If this is something you think you can fix, then fork Web3 Student Lab and creat
 
 ## 3. Get the code working locally
 
-*(We are still setting up the stack, but general instructions will be placed here:)*
+### Development Tooling
+
+To contribute to the smart contracts, you'll need the following Rust tools:
+- **Rust & Cargo**: Follow instructions at [rust-lang.org](https://www.rust-lang.org/tools/install).
+- **Clippy**: Run `rustup component add clippy`.
+- **WASM Target**: Run `rustup target add wasm32-unknown-unknown`.
+
+### Setup
 - Clone your fork locally.
+- Run `npm install` at the root path to set up Git hooks.
 - Run `npm install` in both `frontend` and `backend` directories.
 - Start the servers using `npm run dev`.
 
