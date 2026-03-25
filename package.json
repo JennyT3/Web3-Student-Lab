@@ -4,13 +4,21 @@
   "private": true,
   "description": "Root configuration for Web3 Student Lab monorepo",
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "format:staged": "lint-staged"
   },
   "devDependencies": {
     "husky": "^9.1.5",
-    "lint-staged": "^15.2.10"
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2"
   },
   "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,md,yml,yaml}": [
+      "prettier --write"
+    ],
     "contracts/**/*.rs": [
       "cargo clippy --manifest-path contracts/Cargo.toml -- -D warnings"
     ]

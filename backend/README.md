@@ -66,7 +66,8 @@ Generate a coverage report:
 npm run test:coverage
 ```
 
-Coverage reports will be available in the `coverage/` directory. Open `coverage/lcov-report/index.html` in your browser to view the HTML report.
+Coverage reports will be available in the `coverage/` directory. Open
+`coverage/lcov-report/index.html` in your browser to view the HTML report.
 
 ### Test Structure
 
@@ -105,6 +106,7 @@ describe('My Module Tests', () => {
 ```
 
 ## 📁 Project Structure
+
 # Backend Setup Guide
 
 ## Prerequisites
@@ -116,16 +118,19 @@ describe('My Module Tests', () => {
 ## Installation
 
 1. Install dependencies:
+
 ```bash
 npm install
 ```
 
 2. Set up your environment variables:
+
 ```bash
 cp .env.example .env
 ```
 
 3. Update the `.env` file with your PostgreSQL connection string:
+
 ```
 DATABASE_URL="postgresql://postgres:your-password@localhost:5432/web3-student-lab?schema=public"
 PORT=8080
@@ -138,11 +143,13 @@ NODE_ENV=development
 
 1. Make sure PostgreSQL is running on your machine
 2. Create a database named `web3-student-lab`:
+
 ```bash
 createdb web3-student-lab
 ```
 
 3. Run migrations:
+
 ```bash
 npx prisma migrate deploy
 ```
@@ -159,6 +166,7 @@ docker run --name web3-student-lab-db \
 ```
 
 Then run migrations:
+
 ```bash
 npx prisma migrate deploy
 ```
@@ -166,6 +174,7 @@ npx prisma migrate deploy
 ## Development
 
 Start the development server:
+
 ```bash
 npm run dev
 ```
@@ -175,6 +184,7 @@ The server will start on `http://localhost:8080` (or the port specified in `.env
 ## Building
 
 Build the TypeScript project:
+
 ```bash
 npm run build
 ```
@@ -271,29 +281,21 @@ NODE_ENV=development
 
 ## 🤝 Contributing
 
-Please read the main [CONTRIBUTING.md](../CONTRIBUTING.md) file for details on how to contribute to this project.
+Please read the main [CONTRIBUTING.md](../CONTRIBUTING.md) file for details on how to contribute to
+this project.
 
 ## 📜 License
 
-MIT License - see the main [LICENSE](../LICENSE) file for details.
-│   ├── db/           # Database client and Prisma setup
-│   ├── routes/       # Modular API routers
-│   │   ├── index.ts  # Main router that mounts all feature routers
-│   │   ├── students.ts
-│   │   ├── courses.ts
-│   │   ├── certificates.ts
-│   │   └── enrollments.ts
-│   ├── middleware/   # Express middleware
-│   ├── generated/    # Generated Prisma client (auto-generated)
-│   └── index.ts      # Application entry point
-├── prisma/
-│   ├── schema.prisma # Database schema definition
-│   └── migrations/   # Database migrations
-├── prisma.config.ts  # Prisma configuration
-├── .env              # Environment variables (not committed)
-├── .env.example      # Environment variables template
-└── package.json
-```
+MIT License - see the main [LICENSE](../LICENSE) file for details. │ ├── db/ # Database client and
+Prisma setup │ ├── routes/ # Modular API routers │ │ ├── index.ts # Main router that mounts all
+feature routers │ │ ├── students.ts │ │ ├── courses.ts │ │ ├── certificates.ts │ │ └──
+enrollments.ts │ ├── middleware/ # Express middleware │ ├── generated/ # Generated Prisma client
+(auto-generated) │ └── index.ts # Application entry point ├── prisma/ │ ├── schema.prisma # Database
+schema definition │ └── migrations/ # Database migrations ├── prisma.config.ts # Prisma
+configuration ├── .env # Environment variables (not committed) ├── .env.example # Environment
+variables template └── package.json
+
+````
 
 ## Adding New Features
 
@@ -307,7 +309,7 @@ To add a new feature router:
 ```typescript
 import yourFeatureRouter from './yourFeature.js';
 router.use('/your-feature', yourFeatureRouter);
-```
+````
 
 ## Database Schema
 
@@ -315,7 +317,8 @@ The database includes the following models:
 
 - **Student**: Student information (id, email, firstName, lastName)
 - **Course**: Course details (id, title, description, instructor, credits)
-- **Certificate**: Certificates issued to students (id, studentId, courseId, certificateHash, status)
+- **Certificate**: Certificates issued to students (id, studentId, courseId, certificateHash,
+  status)
 - **Enrollment**: Student course enrollments (id, studentId, courseId, status)
 
 ## Troubleshooting
@@ -329,6 +332,7 @@ The database includes the following models:
 ### Prisma client not generated
 
 Run:
+
 ```bash
 npx prisma generate
 ```
@@ -336,6 +340,7 @@ npx prisma generate
 ### Migration errors
 
 Reset the database (development only):
+
 ```bash
 npx prisma migrate reset
 ```

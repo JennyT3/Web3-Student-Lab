@@ -24,17 +24,15 @@
   "typescript.preferences.includePackageJsonAutoImports": "on",
 
   // ESLint Settings
-  "eslint.validate": [
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact"
-  ],
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
   "eslint.workingDirectories": ["frontend", "backend"],
 
   // Prettier Settings
   "prettier.configPath": ".prettierrc",
   "prettier.ignorePath": ".prettierignore",
+  "prettier.enable": true,
+  "prettier.eslintIntegration": true,
+  "prettier.requireConfig": true,
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
@@ -130,7 +128,7 @@
   // Other Settings
   "breadcrumbs.enabled": true,
   "workbench.editor.enablePreview": false,
-  "workbench.editor.showTabs": true,
+  "workbench.editor.showTabs": "multiple",
   "workbench.colorTheme": "Default Dark+",
   "workbench.iconTheme": "vs-seti",
   "terminal.integrated.shell.osx": "/bin/zsh",

@@ -1,12 +1,14 @@
 # 🐙 Git Workflow & Contribution Guide
 
-Welcome to the Web3 Student Lab! To keep our codebase clean, professional, and easy to maintain, we follow a standardized Git workflow. Whether you are a first-time contributor or an experienced developer, please follow these steps.
+Welcome to the Web3 Student Lab! To keep our codebase clean, professional, and easy to maintain, we
+follow a standardized Git workflow. Whether you are a first-time contributor or an experienced
+developer, please follow these steps.
 
 ## 1. Local Environment Setup
 
 Before you start coding, ensure your local repository is synced with the main project.
 
-```bash
+````bash
 # 1. Fork the repository via the GitHub UI
 # 2. Clone your fork locally
 git clone [https://github.com/](https://github.com/)<YOUR_USERNAME>/Web3-Student-Lab.git
@@ -99,6 +101,7 @@ To ensure students actually read the new guide, we need to update the existing `
 ```markdown
 ## 2. Fork & create a branch
 
-If this is something you think you can fix, then fork Web3 Student Lab and create a branch with a descriptive name. 
+If this is something you think you can fix, then fork Web3 Student Lab and create a branch with a descriptive name.
 
 🚨 **Important:** Please read our detailed **[Git Workflow & Contribution Guide](d
+````

@@ -2,11 +2,14 @@
 
 ## Introduction - What is Soroban?
 
-Soroban is the smart contract platform built on the Stellar network, designed to enable developers to create scalable, secure, and efficient decentralized applications.
+Soroban is the smart contract platform built on the Stellar network, designed to enable developers
+to create scalable, secure, and efficient decentralized applications.
 
-Smart contracts in Soroban are small programs written in Rust and compiled into WebAssembly (WASM) for deployment on the Stellar blockchain.
+Smart contracts in Soroban are small programs written in Rust and compiled into WebAssembly (WASM)
+for deployment on the Stellar blockchain.
 
-The name “Soroban” comes from the Japanese abacus — a lightweight tool known for efficiency and accuracy — reflecting the platform’s focus on performance and precision.
+The name “Soroban” comes from the Japanese abacus — a lightweight tool known for efficiency and
+accuracy — reflecting the platform’s focus on performance and precision.
 
 This guide is intended for everyone exploring Soroban, including:
 
@@ -32,14 +35,16 @@ Before diving in, you should have a basic understanding of:
 
 - **Terminal / Command Line** — you'll run commands to build and deploy contracts
 - **Programming fundamentals** — variables, functions, data types
-- **Rust (basics)** — Soroban contracts are written in Rust; you don't need to be an expert, but familiarity helps
+- **Rust (basics)** — Soroban contracts are written in Rust; you don't need to be an expert, but
+  familiarity helps
 
-💡 New to Rust? Check out [The Rust Book](https://doc.rust-lang.org/book/) — chapters 1–6 cover everything you need to get started.
+💡 New to Rust? Check out [The Rust Book](https://doc.rust-lang.org/book/) — chapters 1–6 cover
+everything you need to get started.
 
 ## Architecture Overview - How Soroban works (Lifecycle)
 
-Soroban operates as a smart contract layer that sits on top of the Stellar network.
-Here is the end-to-end flow:
+Soroban operates as a smart contract layer that sits on top of the Stellar network. Here is the
+end-to-end flow:
 
 ### Key Components :
 
@@ -60,7 +65,7 @@ Here is the end-to-end flow:
 | Frontend / Client | Your app or CLI that triggers contract calls    |
 | Soroban Contract  | Business logic written in Rust                  |
 | WASM Runtime      | Executes compiled contracts in a secure sandbox |
-| Stellar Ledger   | Stores contract state and transaction history   |
+| Stellar Ledger    | Stores contract state and transaction history   |
 
 ### Contract Lifecycle
 
@@ -77,15 +82,18 @@ Understanding these terms will help you follow the rest of this guide.
 
 ### Contract
 
-A contract is a program deployed on the blockchain that defines rules and logic. Once deployed, it runs exactly as written — no one can alter its behaviour.
+A contract is a program deployed on the blockchain that defines rules and logic. Once deployed, it
+runs exactly as written — no one can alter its behaviour.
 
 ### WebAssembly (WASM)
 
-WASM is the compiled format Soroban uses to execute contracts. You write in Rust, but the network runs WASM. This makes execution fast, portable, and sandboxed.
+WASM is the compiled format Soroban uses to execute contracts. You write in Rust, but the network
+runs WASM. This makes execution fast, portable, and sandboxed.
 
 ### Ledger
 
-The ledger is Stellar's version of a blockchain block. It records every state change — balances, contract data, and transaction history.
+The ledger is Stellar's version of a blockchain block. It records every state change — balances,
+contract data, and transaction history.
 
 ### Environment (Env)
 
@@ -122,7 +130,8 @@ Then add the WASM compilation target (required for Soroban):
 
 **Step 2 — Install the Soroban CLI**
 
-The Soroban CLI is your main tool for building, deploying, and interacting with contracts from the terminal.
+The Soroban CLI is your main tool for building, deploying, and interacting with contracts from the
+terminal.
 
 `cargo install --locked soroban-cli`
 
@@ -141,7 +150,8 @@ soroban network add --global testnet \
   --network-passphrase "Test SDF Network ; September 2015"
 ```
 
-💡 The Testnet is a safe environment to experiment — transactions cost nothing and mistakes don't matter.
+💡 The Testnet is a safe environment to experiment — transactions cost nothing and mistakes don't
+matter.
 
 ### Deploy to Testnet
 
@@ -207,8 +217,8 @@ Keep these principles in mind as you build:
 - **Explore authorization** — learn how to restrict who can call your functions
 - **Study token contracts** — understand the Stellar Asset Contract (SAC) standard
 - **Build a frontend** — connect your contract to a web app using @stellar/stellar-sdk
-- **Write tests** — add unit tests using Soroban's built-in test environment
-Browse examples — study real contracts at soroban-examples
+- **Write tests** — add unit tests using Soroban's built-in test environment Browse examples — study
+  real contracts at soroban-examples
 
 ## Official Resources
 
@@ -222,6 +232,10 @@ Browse examples — study real contracts at soroban-examples
 
 ## Conclusion
 
-Soroban gives developers a powerful, low-cost, and secure platform to build smart contracts on Stellar. By writing in Rust and deploying WASM, you get both performance and safety — all deeply integrated with Stellar's existing payment infrastructure.
+Soroban gives developers a powerful, low-cost, and secure platform to build smart contracts on
+Stellar. By writing in Rust and deploying WASM, you get both performance and safety — all deeply
+integrated with Stellar's existing payment infrastructure.
 
-This guide covered the basics: how Soroban works, the key concepts, and how to deploy your first contract. The best next step is to keep building — every real contract you write will teach you something new.
+This guide covered the basics: how Soroban works, the key concepts, and how to deploy your first
+contract. The best next step is to keep building — every real contract you write will teach you
+something new.
