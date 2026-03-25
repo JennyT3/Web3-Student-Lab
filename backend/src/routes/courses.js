@@ -1,10 +1,15 @@
-import { Router } from 'express';
-import prisma from '../db/index.js';
-const router = Router();
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const index_js_1 = __importDefault(require("../db/index.js"));
+const router = (0, express_1.Router)();
 // GET /api/courses - Get all courses
 router.get('/', async (req, res) => {
     try {
-        const courses = await prisma.course.findMany({
+        const courses = await index_js_1.default.course.findMany({
             include: {
                 enrollments: true,
                 certificates: true,
@@ -20,7 +25,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const course = await prisma.course.findUnique({
+        const course = await index_js_1.default.course.findUnique({
             where: { id },
             include: {
                 enrollments: {
@@ -51,7 +56,7 @@ router.post('/', async (req, res) => {
         if (!title || !instructor) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        const course = await prisma.course.create({
+        const course = await index_js_1.default.course.create({
             data: {
                 title,
                 description,
@@ -70,7 +75,7 @@ router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { title, description, instructor, credits } = req.body;
-        const course = await prisma.course.update({
+        const course = await index_js_1.default.course.update({
             where: { id },
             data: {
                 title,
@@ -89,7 +94,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await prisma.course.delete({
+        await index_js_1.default.course.delete({
             where: { id },
         });
         res.status(204).send();
@@ -98,5 +103,5 @@ router.delete('/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete course' });
     }
 });
-export default router;
+exports.default = router;
 //# sourceMappingURL=courses.js.map

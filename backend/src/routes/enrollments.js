@@ -1,10 +1,15 @@
-import { Router } from 'express';
-import prisma from '../db/index.js';
-const router = Router();
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const index_js_1 = __importDefault(require("../db/index.js"));
+const router = (0, express_1.Router)();
 // GET /api/enrollments - Get all enrollments
 router.get('/', async (req, res) => {
     try {
-        const enrollments = await prisma.enrollment.findMany({
+        const enrollments = await index_js_1.default.enrollment.findMany({
             include: {
                 student: true,
                 course: true,
@@ -20,7 +25,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const enrollment = await prisma.enrollment.findUnique({
+        const enrollment = await index_js_1.default.enrollment.findUnique({
             where: { id },
             include: {
                 student: true,
@@ -45,13 +50,13 @@ router.post('/', async (req, res) => {
         }
         // Verify student and course exist
         const [student, course] = await Promise.all([
-            prisma.student.findUnique({ where: { id: studentId } }),
-            prisma.course.findUnique({ where: { id: courseId } }),
+            index_js_1.default.student.findUnique({ where: { id: studentId } }),
+            index_js_1.default.course.findUnique({ where: { id: courseId } }),
         ]);
         if (!student || !course) {
             return res.status(404).json({ error: 'Student or course not found' });
         }
-        const enrollment = await prisma.enrollment.create({
+        const enrollment = await index_js_1.default.enrollment.create({
             data: {
                 studentId,
                 courseId,
@@ -72,7 +77,7 @@ router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
-        const enrollment = await prisma.enrollment.update({
+        const enrollment = await index_js_1.default.enrollment.update({
             where: { id },
             data: { status },
             include: {
@@ -90,7 +95,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await prisma.enrollment.delete({
+        await index_js_1.default.enrollment.delete({
             where: { id },
         });
         res.status(204).send();
@@ -99,5 +104,5 @@ router.delete('/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to unenroll student' });
     }
 });
-export default router;
+exports.default = router;
 //# sourceMappingURL=enrollments.js.map

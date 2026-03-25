@@ -1,23 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const auth_service_js_1 = require("../../auth/auth.service.js");
+const auth_middleware_js_1 = require("../../auth/auth.middleware.js");
 const router = (0, express_1.Router)();
-// Mock user storage (in production, this would be a database)
-const users = new Map();
-// Generate a mock JWT token (in production, use a real JWT library)
-const generateToken = (userId) => {
-    return `mock-jwt-token-${userId}-${Date.now()}`;
-};
 /**
  * @route   POST /api/auth/register
- * @desc    Register a new user
+ * @desc    Register a new student
  * @access  Public
  */
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
     try {
-        const { email, password, name } = req.body;
+        const { email, password, firstName, lastName } = req.body;
         // Validation
-        if (!email || !password || !name) {
+        if (!email || !password || !firstName || !lastName) {
             res.status(400).json({ error: 'All fields are required' });
             return;
         }
@@ -25,37 +21,24 @@ router.post('/register', (req, res) => {
             res.status(400).json({ error: 'Password must be at least 6 characters' });
             return;
         }
-        // Check if user already exists
-        if (users.has(email)) {
-            res.status(409).json({ error: 'User with this email already exists' });
-            return;
-        }
-        // Create user
-        const userId = `user-${Date.now()}`;
-        const newUser = {
-            id: userId,
-            email,
-            name,
-            password, // In production, hash this!
-        };
-        users.set(email, newUser);
-        // Generate token
-        const token = generateToken(userId);
-        res.status(201).json({
-            user: { id: userId, email, name },
-            token,
-        });
+        // Register the student
+        const authResponse = await (0, auth_service_js_1.register)({ email, password, firstName, lastName });
+        res.status(201).json(authResponse);
     }
     catch (error) {
+        if (error instanceof Error && error.message === 'Student with this email already exists') {
+            res.status(409).json({ error: error.message });
+            return;
+        }
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 /**
  * @route   POST /api/auth/login
- * @desc    Login user
+ * @desc    Login student
  * @access  Public
  */
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         // Validation
@@ -63,53 +46,26 @@ router.post('/login', (req, res) => {
             res.status(400).json({ error: 'Email and password are required' });
             return;
         }
-        // Find user
-        const user = users.get(email);
-        if (!user || user.password !== password) {
-            res.status(401).json({ error: 'Invalid credentials' });
-            return;
-        }
-        // Generate token
-        const token = generateToken(user.id);
-        res.json({
-            user: { id: user.id, email: user.email, name: user.name },
-            token,
-        });
+        // Login the student
+        const authResponse = await (0, auth_service_js_1.login)({ email, password });
+        res.json(authResponse);
     }
     catch (error) {
+        if (error instanceof Error && error.message === 'Invalid credentials') {
+            res.status(401).json({ error: error.message });
+            return;
+        }
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 /**
  * @route   GET /api/auth/me
- * @desc    Get current user (protected route example)
- * @access  Private (simulated)
+ * @desc    Get current authenticated student
+ * @access  Private
  */
-router.get('/me', (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        res.status(401).json({ error: 'Authorization token required' });
-        return;
-    }
-    // In production, verify the JWT token here
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-        res.status(401).json({ error: 'Invalid token format' });
-        return;
-    }
-    // For demo purposes, extract user info from mock token
-    if (!token.startsWith('mock-jwt-token-')) {
-        res.status(401).json({ error: 'Invalid token' });
-        return;
-    }
-    // Return mock user data
-    res.json({
-        user: {
-            id: 'user-123',
-            email: 'user@example.com',
-            name: 'Test User',
-        },
-    });
+router.get('/me', auth_middleware_js_1.authenticate, (req, res) => {
+    // User is attached to request by authenticate middleware
+    res.json({ user: req.user });
 });
 exports.default = router;
 //# sourceMappingURL=auth.routes.js.map

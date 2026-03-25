@@ -1,0 +1,34 @@
+import { Request, Response, Router } from 'express';
+import { getStudentDashboard } from './dashboard.service.js';
+
+const router = Router();
+
+/**
+ * @route   GET /api/dashboard/:studentId
+ * @desc    Get accurate student profile and achievements aggregated from all modules
+ * @access  Public (should apply auth globally later)
+ */
+router.get('/:studentId', async (req: Request, res: Response) => {
+  try {
+    const studentId = req.params.studentId;
+
+    if (!studentId) {
+      res.status(400).json({ error: 'Student ID is required' });
+      return;
+    }
+
+    // Unified student profile view across Learning, Blockchain, Token
+    const dashboard = await getStudentDashboard(studentId);
+
+    res.json(dashboard);
+  } catch (error: any) {
+    if (error.message === 'Student not found') {
+      res.status(404).json({ error: 'Student Profile not found' });
+    } else {
+      res.status(500).json({ error: 'Internal server error while fetching dashboard' });
+    }
+  }
+});
+
+// Modular route export
+export default router;

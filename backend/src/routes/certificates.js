@@ -1,10 +1,15 @@
-import { Router } from 'express';
-import prisma from '../db/index.js';
-const router = Router();
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const index_js_1 = __importDefault(require("../db/index.js"));
+const router = (0, express_1.Router)();
 // GET /api/certificates - Get all certificates
 router.get('/', async (req, res) => {
     try {
-        const certificates = await prisma.certificate.findMany({
+        const certificates = await index_js_1.default.certificate.findMany({
             include: {
                 student: true,
                 course: true,
@@ -20,7 +25,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const certificate = await prisma.certificate.findUnique({
+        const certificate = await index_js_1.default.certificate.findUnique({
             where: { id },
             include: {
                 student: true,
@@ -40,7 +45,7 @@ router.get('/:id', async (req, res) => {
 router.get('/student/:studentId', async (req, res) => {
     try {
         const { studentId } = req.params;
-        const certificates = await prisma.certificate.findMany({
+        const certificates = await index_js_1.default.certificate.findMany({
             where: { studentId },
             include: {
                 course: true,
@@ -61,13 +66,13 @@ router.post('/', async (req, res) => {
         }
         // Verify student and course exist
         const [student, course] = await Promise.all([
-            prisma.student.findUnique({ where: { id: studentId } }),
-            prisma.course.findUnique({ where: { id: courseId } }),
+            index_js_1.default.student.findUnique({ where: { id: studentId } }),
+            index_js_1.default.course.findUnique({ where: { id: courseId } }),
         ]);
         if (!student || !course) {
             return res.status(404).json({ error: 'Student or course not found' });
         }
-        const certificate = await prisma.certificate.create({
+        const certificate = await index_js_1.default.certificate.create({
             data: {
                 studentId,
                 courseId,
@@ -90,7 +95,7 @@ router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { status, certificateHash } = req.body;
-        const certificate = await prisma.certificate.update({
+        const certificate = await index_js_1.default.certificate.update({
             where: { id },
             data: {
                 status,
@@ -111,7 +116,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await prisma.certificate.delete({
+        await index_js_1.default.certificate.delete({
             where: { id },
         });
         res.status(204).send();
@@ -120,5 +125,5 @@ router.delete('/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to revoke certificate' });
     }
 });
-export default router;
+exports.default = router;
 //# sourceMappingURL=certificates.js.map

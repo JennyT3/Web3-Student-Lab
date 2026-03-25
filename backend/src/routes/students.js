@@ -1,10 +1,15 @@
-import { Router } from 'express';
-import prisma from '../db/index.js';
-const router = Router();
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const index_js_1 = __importDefault(require("../db/index.js"));
+const router = (0, express_1.Router)();
 // GET /api/students - Get all students
 router.get('/', async (req, res) => {
     try {
-        const students = await prisma.student.findMany({
+        const students = await index_js_1.default.student.findMany({
             include: {
                 enrollments: true,
                 certificates: true,
@@ -20,7 +25,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const student = await prisma.student.findUnique({
+        const student = await index_js_1.default.student.findUnique({
             where: { id },
             include: {
                 enrollments: {
@@ -51,7 +56,7 @@ router.post('/', async (req, res) => {
         if (!email || !firstName || !lastName) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        const student = await prisma.student.create({
+        const student = await index_js_1.default.student.create({
             data: {
                 email,
                 firstName,
@@ -69,7 +74,7 @@ router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { email, firstName, lastName } = req.body;
-        const student = await prisma.student.update({
+        const student = await index_js_1.default.student.update({
             where: { id },
             data: {
                 email,
@@ -87,7 +92,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await prisma.student.delete({
+        await index_js_1.default.student.delete({
             where: { id },
         });
         res.status(204).send();
@@ -96,5 +101,5 @@ router.delete('/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete student' });
     }
 });
-export default router;
+exports.default = router;
 //# sourceMappingURL=students.js.map
