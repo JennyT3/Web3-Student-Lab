@@ -13,7 +13,7 @@ export default function CertificateNFTPage() {
   const [certificate, setCertificate] = useState<Certificate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<any>(null);
+  const [verificationResult, setVerificationResult] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     async function loadCertificate() {

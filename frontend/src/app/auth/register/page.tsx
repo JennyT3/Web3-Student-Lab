@@ -48,8 +48,9 @@ export default function RegisterPage() {
     try {
       await register(formData.email, formData.password, formData.firstName, formData.lastName);
       router.push('/dashboard');
-    } catch (err: any) {
-      setLocalError(err.response?.data?.error || 'Registration failed. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+      setLocalError(message);
     } finally {
       setIsSubmitting(false);
     }

@@ -28,8 +28,8 @@ export default function VerifyCertificatePage() {
       } else {
         setError('Certificate not found on blockchain');
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to verify certificate');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to verify certificate');
     } finally {
       setIsVerifying(false);
     }

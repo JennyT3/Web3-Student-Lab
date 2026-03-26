@@ -65,8 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Login failed';
+      setError(message);
       throw err;
     }
   };
@@ -81,8 +82,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Registration failed';
+      setError(message);
       throw err;
     }
   };

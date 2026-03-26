@@ -32,8 +32,9 @@ export default function LoginPage() {
     try {
       await login(formData.email, formData.password);
       router.push('/dashboard');
-    } catch (err: any) {
-      setLocalError(err.response?.data?.error || 'Login failed. Please check your credentials.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';
+      setLocalError(message);
     } finally {
       setIsSubmitting(false);
     }

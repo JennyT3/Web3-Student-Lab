@@ -133,7 +133,7 @@ export const certificatesAPI = {
     return response.data;
   },
 
-  verifyOnChain: async (certificateId: string): Promise<any> => {
+  verifyOnChain: async (certificateId: string): Promise<Record<string, unknown>> => {
     const response = await apiClient.get(`/certificates/${certificateId}/verify`);
     return response.data;
   },
@@ -174,7 +174,7 @@ export const feedbackAPI = {
     return response.data;
   },
 
-  getSummary: async (courseId: string): Promise<any> => {
+  getSummary: async (courseId: string): Promise<Record<string, unknown>> => {
     const response = await apiClient.get(`/feedback/course/${courseId}/summary`);
     return response.data;
   },
@@ -182,12 +182,12 @@ export const feedbackAPI = {
 
 // Dashboard APIs
 export const dashboardAPI = {
-  getStats: async (): Promise<any> => {
+  getStats: async (): Promise<Record<string, unknown>> => {
     const response = await apiClient.get('/dashboard/stats');
     return response.data;
   },
 
-  getStudentDashboard: async (studentId: string): Promise<any> => {
+  getStudentDashboard: async (studentId: string): Promise<Record<string, unknown>> => {
     const response = await apiClient.get(`/dashboard/student/${studentId}`);
     return response.data;
   },

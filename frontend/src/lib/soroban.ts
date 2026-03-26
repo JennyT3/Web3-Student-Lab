@@ -36,6 +36,7 @@ export const verifyCertificateOnChain = async (
 
     // Call the contract
     const result = await server.simulateTransaction(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         new Contract(CERTIFICATE_CONTRACT_ID).call('get_certificate', ...args) as any
     );
 
