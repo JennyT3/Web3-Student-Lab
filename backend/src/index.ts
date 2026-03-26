@@ -1,11 +1,14 @@
-import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { requestLogger } from './middleware/requestLogger';
 import routes from './routes/index';
 import prisma from './db/index';
 
+// Load environment variables
 dotenv.config();
+
+// Validate environment variables before starting the application
+validateEnvironment();
 
 export const app = express();
 const port = process.env.PORT || 8080;

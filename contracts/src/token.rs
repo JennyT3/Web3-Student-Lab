@@ -22,11 +22,7 @@ pub struct RsTokenContract;
 impl RsTokenContract {
     /// Stores the certificate contract address allowed to mint RS-Tokens.
     pub fn init(env: Env, certificate_contract: Address) {
-        if env
-            .storage()
-            .instance()
-            .has(&DataKey::CertificateContract)
-        {
+        if env.storage().instance().has(&DataKey::CertificateContract) {
             panic_with_error!(&env, TokenError::AlreadyInitialized);
         }
 
@@ -83,12 +79,7 @@ mod tests {
         let student = Address::generate(&env);
 
         RsTokenContract::init(env.clone(), certificate_contract.clone());
-        RsTokenContract::mint(
-            env.clone(),
-            certificate_contract,
-            student.clone(),
-            25,
-        );
+        RsTokenContract::mint(env.clone(), certificate_contract, student.clone(), 25);
 
         assert_eq!(RsTokenContract::get_balance(env, student), 25);
     }

@@ -2,7 +2,7 @@
 
 pub mod token;
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Env, String, Symbol};
+use soroban_sdk::{contract, contractimpl, contracttype, Env, String, Symbol};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -43,7 +43,7 @@ impl CertificateContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Ledger, Env};
+    use soroban_sdk::{symbol_short, testutils::Ledger, Env};
 
     #[test]
     fn issues_and_loads_certificate_with_custom_symbol() {

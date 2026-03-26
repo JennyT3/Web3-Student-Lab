@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main, master]
 
+jobs:
   frontend:
     name: Frontend CI
     runs-on: ubuntu-latest

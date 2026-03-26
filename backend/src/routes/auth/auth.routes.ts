@@ -1,7 +1,8 @@
-import { Router, Request, Response } from 'express';
-import { register, login } from '../../auth/auth.service.js';
+import { Request, Response, Router } from 'express';
 import { authenticate } from '../../auth/auth.middleware.js';
-import { LoginRequest, RegisterRequest } from '../../auth/types.js';
+import { login, register } from '../../auth/auth.service.js';
+import { loginSchema, registerSchema } from '../../auth/validation.schemas.js';
+import { validateRequest } from '../../utils/validation.js';
 
 const router = Router();
 
@@ -10,20 +11,10 @@ const router = Router();
  * @desc    Register a new student
  * @access  Public
  */
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', validateRequest(registerSchema), async (req: Request, res: Response) => {
   try {
-    const { email, password, firstName, lastName }: RegisterRequest = req.body;
-
-    // Validation
-    if (!email || !password || !firstName || !lastName) {
-      res.status(400).json({ error: 'All fields are required' });
-      return;
-    }
-
-    if (password.length < 6) {
-      res.status(400).json({ error: 'Password must be at least 6 characters' });
-      return;
-    }
+    // Request body is already validated by middleware
+    const { email, password, firstName, lastName } = req.body;
 
     // Register the student
     const authResponse = await register({ email, password, firstName, lastName });
