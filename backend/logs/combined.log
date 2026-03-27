@@ -42,3 +42,8 @@
 2026-03-27 14:21:03 info: 🔌 Port: 8080
 2026-03-27 14:21:03 info: 🌐 Stellar Network: testnet
 2026-03-27 14:21:08 info: POST /api/generator/generate
+2026-03-27 14:58:48 info: ✅ Environment variables validated successfully
+2026-03-27 14:58:48 info: 🌍 Environment: development
+2026-03-27 14:58:48 info: 🔌 Port: 8080
+2026-03-27 14:58:48 info: 🌐 Stellar Network: testnet
+2026-03-27 14:58:48 info: Server is running on port 8080
