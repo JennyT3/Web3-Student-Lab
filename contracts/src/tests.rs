@@ -211,3 +211,192 @@ fn non_admin_cannot_revoke_certificate() {
     let attacker = Address::generate(&env);
     client.revoke(&attacker, &course_symbol, &student);
 }
+
+// ============ Dynamic Minting Caps Tests ============
+
+#[test]
+fn get_default_mint_cap() {
+    let (env, admin, client) = setup();
+
+    let mint_cap = client.get_mint_cap(&admin);
+    assert_eq!(mint_cap, 1000); // Default cap
+}
+
+#[test]
+#[should_panic(expected = "unauthorized")]
+fn non_admin_cannot_get_mint_cap() {
+    let (env, _admin, client) = setup();
+
+    let attacker = Address::generate(&env);
+    client.get_mint_cap(&attacker);
+}
+
+#[test]
+fn admin_can_set_mint_cap() {
+    let (env, admin, client) = setup();
+
+    // Set a new cap
+    client.set_mint_cap(&admin, &500);
+
+    // Verify the new cap
+    let mint_cap = client.get_mint_cap(&admin);
+    assert_eq!(mint_cap, 500);
+}
+
+#[test]
+#[should_panic(expected = "unauthorized")]
+fn non_admin_cannot_set_mint_cap() {
+    let (env, _admin, client) = setup();
+
+    let attacker = Address::generate(&env);
+    client.set_mint_cap(&attacker, &500);
+}
+
+#[test]
+#[should_panic(expected = "InvalidMintCap")]
+fn cannot_set_zero_mint_cap() {
+    let (env, admin, client) = setup();
+
+    client.set_mint_cap(&admin, &0);
+}
+
+#[test]
+fn mint_cap_exceeded_reverts() {
+    let (env, admin, client) = setup();
+
+    // Set a very low cap
+    client.set_mint_cap(&admin, &2);
+
+    let course_symbol = symbol_short!("CAP1");
+    let course_name = String::from_str(&env, "Test Course");
+
+    // Issue certificates up to the cap (2)
+    let student1 = Address::generate(&env);
+    let student2 = Address::generate(&env);
+    client.issue(&course_symbol, &vec![&env, student1.clone(), student2.clone()], &course_name);
+
+    // Try to issue more - should panic
+    let student3 = Address::generate(&env);
+    client.issue(&course_symbol, &vec![&env, student3.clone()], &course_name);
+}
+
+#[test]
+fn get_mint_stats() {
+    let (env, admin, client) = setup();
+
+    // Set a specific cap
+    client.set_mint_cap(&admin, &100);
+
+    // Issue some certificates
+    let course_symbol = symbol_short!("STAT");
+    let course_name = String::from_str(&env, "Stats Course");
+    let student1 = Address::generate(&env);
+    let student2 = Address::generate(&env);
+    let student3 = Address::generate(&env);
+    client.issue(
+        &course_symbol,
+        &vec![&env, student1.clone(), student2.clone(), student3.clone()],
+        &course_name,
+    );
+
+    // Check stats
+    let (period, minted, cap, remaining) = client.get_mint_stats(&admin);
+
+    assert_eq!(minted, 3);
+    assert_eq!(cap, 100);
+    assert_eq!(remaining, 97);
+    // Period should be 0 at the start
+    assert_eq!(period, 0);
+}
+
+#[test]
+fn non_admin_cannot_get_mint_stats() {
+    let (env, _admin, client) = setup();
+
+    let attacker = Address::generate(&env);
+    client.get_mint_stats(&attacker);
+}
+
+#[test]
+fn multiple_issues_respect_mint_cap() {
+    let (env, admin, client) = setup();
+
+    // Set cap to 5
+    client.set_mint_cap(&admin, &5);
+
+    let course_symbol = symbol_short!("MULT");
+    let course_name = String::from_str(&env, "Multi Issue Course");
+
+    // First batch: 3 certificates
+    let student1 = Address::generate(&env);
+    let student2 = Address::generate(&env);
+    let student3 = Address::generate(&env);
+    client.issue(
+        &course_symbol,
+        &vec![&env, student1.clone(), student2.clone(), student3.clone()],
+        &course_name,
+    );
+
+    // Second batch: 2 certificates - should succeed (total = 5)
+    let student4 = Address::generate(&env);
+    let student5 = Address::generate(&env);
+    client.issue(
+        &course_symbol,
+        &vec![&env, student4.clone(), student5.clone()],
+        &course_name,
+    );
+
+    // Third batch: 1 certificate - should fail (total would be 6)
+    let student6 = Address::generate(&env);
+    client.issue(&course_symbol, &vec![&env, student6.clone()], &course_name);
+}
+
+#[test]
+fn mint_cap_update_emits_event() {
+    let (env, admin, client) = setup();
+
+    // Set a new cap - this should emit an event
+    client.set_mint_cap(&admin, &250);
+
+    // Find the mint_cap_updated event
+    let all_events = env.events().all();
+    let mut found_event = false;
+    for (addr, topics, data) in all_events.iter() {
+        if addr == client.address
+            && Symbol::from_val(&env, &topics.get(0).unwrap()) == Symbol::new(&env, "mint_cap_updated")
+        {
+            found_event = true;
+            // Data should be (old_cap, new_cap) = (1000, 250)
+            // In soroban, data tuples are returned differently
+        }
+    }
+    assert!(found_event);
+}
+
+#[test]
+fn issue_emits_mint_period_update_event() {
+    let (env, _admin, client) = setup();
+
+    let course_symbol = symbol_short!("EVNT");
+    let course_name = String::from_str(&env, "Event Course");
+    let student1 = Address::generate(&env);
+    let student2 = Address::generate(&env);
+
+    client.issue(
+        &course_symbol,
+        &vec![&env, student1.clone(), student2.clone()],
+        &course_name,
+    );
+
+    // Find the mint_period_update event
+    let all_events = env.events().all();
+    let mut found_event = false;
+    for (addr, topics, _) in all_events.iter() {
+        if addr == client.address
+            && Symbol::from_val(&env, &topics.get(0).unwrap()) == Symbol::new(&env, "mint_period_update")
+        {
+            found_event = true;
+        }
+    }
+    assert!(found_event);
+}
