@@ -21,5 +21,8 @@
     "contracts/**/*.rs": [
       "cargo clippy --manifest-path contracts/Cargo.toml -- -D warnings"
     ]
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^14.6.1"
   }
 }

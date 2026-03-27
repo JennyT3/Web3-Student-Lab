@@ -1,152 +1,307 @@
 import request from 'supertest';
-import { app } from '../src/index';
+import { app } from '../src/index.js';
+import prisma from '../src/db/index.js';
+
+const courseFixtures = [
+  {
+    id: 'course-1',
+    title: 'Soroban 101: Smart Contract Basics',
+    description: 'Learn the fundamentals of Soroban smart contracts on the Stellar network.',
+    instructor: 'Stellar Dev Hub',
+    credits: 3,
+  },
+  {
+    id: 'course-2',
+    title: 'Stellar Blockchain Fundamentals',
+    description: 'Understand how the Stellar blockchain works.',
+    instructor: 'Web3 Academy',
+    credits: 2,
+  },
+];
+
+const registerStudent = async (email: string) => {
+  const response = await request(app).post('/api/auth/register').send({
+    email,
+    password: 'password123',
+    firstName: 'Test',
+    lastName: 'Student',
+  });
+
+  return {
+    token: response.body.token as string,
+    userId: response.body.user.id as string,
+  };
+};
 
 describe('Learning Module Integration Tests', () => {
-  describe('GET /api/learning/modules', () => {
-    it('should return all modules', async () => {
-      const response = await request(app).get('/api/learning/modules').expect(200);
+  beforeEach(async () => {
+    await prisma.learningProgress.deleteMany();
+    await prisma.feedback.deleteMany();
+    await prisma.certificate.deleteMany();
+    await prisma.enrollment.deleteMany();
+    await prisma.course.deleteMany();
+    await prisma.student.deleteMany();
 
-      expect(response.body).toHaveProperty('modules');
-      expect(Array.isArray(response.body.modules)).toBe(true);
-      expect(response.body.modules.length).toBeGreaterThan(0);
+    await prisma.course.createMany({
+      data: courseFixtures,
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  describe('GET /api/learning/courses', () => {
+    it('returns course curriculum data', async () => {
+      const response = await request(app).get('/api/learning/courses').expect(200);
+
+      expect(response.body.courses).toHaveLength(2);
+      expect(response.body.courses[0]).toHaveProperty('modules');
+      expect(response.body.courses[0].modules[0]).toHaveProperty('lessons');
     });
 
-    it('should filter modules by difficulty', async () => {
+    it('filters nested lessons by difficulty', async () => {
       const response = await request(app)
-        .get('/api/learning/modules?difficulty=beginner')
+        .get('/api/learning/courses?difficulty=beginner')
         .expect(200);
 
+<<<<<<< HEAD
       expect(response.body).toHaveProperty('modules');
 
       // Check that all returned lessons are beginner level
-      response.body.modules.forEach((module: any) => {
-        module.lessons.forEach((lesson: any) => {
+      response.body.modules.forEach((module: { lessons: { difficulty: string }[] }) => {
+        module.lessons.forEach((lesson: { difficulty: string }) => {
           expect(lesson.difficulty).toBe('beginner');
+=======
+      response.body.courses.forEach((course: any) => {
+        course.modules.forEach((module: any) => {
+          module.lessons.forEach((lesson: any) => {
+            expect(lesson.difficulty).toBe('beginner');
+          });
+>>>>>>> 92adf5c (Course Curriculum and Student Progress API)
         });
       });
     });
+  });
 
-    it('should return modules with correct structure', async () => {
-      const response = await request(app).get('/api/learning/modules').expect(200);
+  describe('GET /api/learning/courses/:courseId', () => {
+    it('returns a single course with curriculum', async () => {
+      const response = await request(app).get('/api/learning/courses/course-1').expect(200);
 
-      const firstModule = response.body.modules[0];
-      expect(firstModule).toHaveProperty('id');
-      expect(firstModule).toHaveProperty('title');
-      expect(firstModule).toHaveProperty('description');
-      expect(firstModule).toHaveProperty('lessons');
-      expect(Array.isArray(firstModule.lessons)).toBe(true);
+      expect(response.body.course.id).toBe('course-1');
+      expect(response.body.course.modules.length).toBeGreaterThan(0);
+    });
+
+    it('returns 404 when the course does not exist', async () => {
+      const response = await request(app).get('/api/learning/courses/unknown-course').expect(404);
+
+      expect(response.body.error).toBe('Course not found');
     });
   });
 
-  describe('GET /api/learning/modules/:moduleId', () => {
-    it('should return a specific module by ID', async () => {
-      const response = await request(app).get('/api/learning/modules/mod-1').expect(200);
+  describe('GET /api/learning/courses/:courseId/progress', () => {
+    it('rejects unauthenticated access', async () => {
+      const response = await request(app).get('/api/learning/courses/course-1/progress').expect(401);
 
-      expect(response.body).toHaveProperty('module');
-      expect(response.body.module.id).toBe('mod-1');
-      expect(response.body.module).toHaveProperty('title');
-      expect(response.body.module).toHaveProperty('lessons');
+      expect(response.body.error).toBe('Authorization token required');
     });
 
-    it('should return 404 for non-existent module', async () => {
-      const response = await request(app).get('/api/learning/modules/non-existent-id').expect(404);
-
-      expect(response.body).toHaveProperty('error');
-    });
-  });
-
-  describe('GET /api/learning/progress/:userId', () => {
-    it('should return default progress for new user', async () => {
-      const response = await request(app).get('/api/learning/progress/new-user-123').expect(200);
-
-      expect(response.body).toHaveProperty('progress');
-      expect(response.body.progress.userId).toBe('new-user-123');
-      expect(response.body.progress.completedLessons).toEqual([]);
-      expect(response.body.progress.percentage).toBe(0);
-    });
-
-    it('should return existing progress for user', async () => {
-      // First, complete a lesson to create progress
-      await request(app)
-        .post('/api/learning/progress/existing-user/complete')
-        .send({ lessonId: 'lesson-1' });
-
-      const response = await request(app).get('/api/learning/progress/existing-user').expect(200);
-
-      expect(response.body).toHaveProperty('progress');
-      expect(response.body.progress.userId).toBe('existing-user');
-      expect(response.body.progress.completedLessons).toContain('lesson-1');
-    });
-  });
-
-  describe('POST /api/learning/progress/:userId/complete', () => {
-    it('should mark a lesson as complete', async () => {
-      const userId = 'test-user-complete';
-      const lessonId = 'lesson-1';
+    it('returns default progress for a student without a record', async () => {
+      const student = await registerStudent('progress-default@example.com');
 
       const response = await request(app)
-        .post(`/api/learning/progress/${userId}/complete`)
-        .send({ lessonId })
+        .get('/api/learning/courses/course-1/progress')
+        .set('Authorization', `Bearer ${student.token}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty('progress');
-      expect(response.body.progress.completedLessons).toContain(lessonId);
-      expect(response.body).toHaveProperty('message');
+      expect(response.body.progress.studentId).toBe(student.userId);
+      expect(response.body.progress.courseId).toBe('course-1');
+      expect(response.body.progress.completedLessons).toEqual([]);
+      expect(response.body.progress.status).toBe('not_started');
     });
 
-    it('should return 400 if lesson ID is missing', async () => {
+    it("does not expose another student's progress", async () => {
+      const firstStudent = await registerStudent('first-progress@example.com');
+      const secondStudent = await registerStudent('second-progress@example.com');
+
+      await prisma.learningProgress.create({
+        data: {
+          studentId: firstStudent.userId,
+          courseId: 'course-1',
+          completedLessons: ['course-1-lesson-1'],
+          currentModuleId: 'course-1-module-1',
+          percentage: 25,
+          status: 'in_progress',
+          lastAccessedAt: new Date(),
+        },
+      });
+
       const response = await request(app)
-        .post('/api/learning/progress/test-user/complete')
-        .send({})
+        .get('/api/learning/courses/course-1/progress')
+        .set('Authorization', `Bearer ${secondStudent.token}`)
+        .expect(200);
+
+      expect(response.body.progress.studentId).toBe(secondStudent.userId);
+      expect(response.body.progress.completedLessons).toEqual([]);
+    });
+  });
+
+  describe('PATCH /api/learning/courses/:courseId/progress', () => {
+    it('creates progress on first update and persists it', async () => {
+      const student = await registerStudent('progress-update@example.com');
+
+      const response = await request(app)
+        .patch('/api/learning/courses/course-1/progress')
+        .set('Authorization', `Bearer ${student.token}`)
+        .send({
+          lessonId: 'course-1-lesson-1',
+          status: 'completed',
+        })
+        .expect(200);
+
+      expect(response.body.progress.studentId).toBe(student.userId);
+      expect(response.body.progress.completedLessons).toContain('course-1-lesson-1');
+      expect(response.body.progress.status).toBe('in_progress');
+
+      const stored = await prisma.learningProgress.findUnique({
+        where: {
+          studentId_courseId: {
+            studentId: student.userId,
+            courseId: 'course-1',
+          },
+        },
+      });
+
+      expect(stored?.completedLessons).toContain('course-1-lesson-1');
+      expect(stored?.percentage).toBe(25);
+    });
+
+    it('updates an existing progress row instead of inserting a duplicate', async () => {
+      const student = await registerStudent('progress-upsert@example.com');
+
+      await request(app)
+        .patch('/api/learning/courses/course-1/progress')
+        .set('Authorization', `Bearer ${student.token}`)
+        .send({
+          lessonId: 'course-1-lesson-1',
+          status: 'completed',
+        })
+        .expect(200);
+
+      const response = await request(app)
+        .patch('/api/learning/courses/course-1/progress')
+        .set('Authorization', `Bearer ${student.token}`)
+        .send({
+          lessonId: 'course-1-lesson-2',
+          status: 'completed',
+          percentage: 50,
+        })
+        .expect(200);
+
+      expect(response.body.progress.completedLessons).toEqual([
+        'course-1-lesson-1',
+        'course-1-lesson-2',
+      ]);
+      expect(response.body.progress.percentage).toBe(50);
+
+      const recordCount = await prisma.learningProgress.count({
+        where: {
+          studentId: student.userId,
+          courseId: 'course-1',
+        },
+      });
+
+      expect(recordCount).toBe(1);
+    });
+
+    it('returns 400 for an out-of-range percentage', async () => {
+      const student = await registerStudent('invalid-percentage@example.com');
+
+      const response = await request(app)
+        .patch('/api/learning/courses/course-1/progress')
+        .set('Authorization', `Bearer ${student.token}`)
+        .send({
+          lessonId: 'course-1-lesson-1',
+          status: 'completed',
+          percentage: 101,
+        })
         .expect(400);
 
-      expect(response.body).toHaveProperty('error');
+      expect(response.body.error).toBe('Validation failed');
     });
 
-    it('should return 404 for non-existent lesson', async () => {
+    it('returns 400 for an invalid course id parameter', async () => {
+      const student = await registerStudent('invalid-course-param@example.com');
+
       const response = await request(app)
-        .post('/api/learning/progress/test-user/complete')
-        .send({ lessonId: 'non-existent-lesson' })
+        .patch('/api/learning/courses/%20/progress')
+        .set('Authorization', `Bearer ${student.token}`)
+        .send({
+          lessonId: 'course-1-lesson-1',
+          status: 'completed',
+        })
+        .expect(400);
+
+      expect(response.body.error).toBe('Parameter validation failed');
+    });
+
+    it('returns 404 when the lesson does not exist in the course curriculum', async () => {
+      const student = await registerStudent('unknown-lesson@example.com');
+
+      const response = await request(app)
+        .patch('/api/learning/courses/course-1/progress')
+        .set('Authorization', `Bearer ${student.token}`)
+        .send({
+          lessonId: 'course-2-lesson-1',
+          status: 'completed',
+        })
         .expect(404);
 
-      expect(response.body).toHaveProperty('error');
+      expect(response.body.error).toBe('Lesson not found');
     });
 
-    it('should update progress percentage after completing lessons', async () => {
-      const userId = 'progress-user';
+    it("keeps each student's progress isolated", async () => {
+      const firstStudent = await registerStudent('owner-progress@example.com');
+      const secondStudent = await registerStudent('other-progress@example.com');
 
-      // Complete first lesson
       await request(app)
-        .post(`/api/learning/progress/${userId}/complete`)
-        .send({ lessonId: 'lesson-1' });
-
-      // Complete second lesson
-      const response = await request(app)
-        .post(`/api/learning/progress/${userId}/complete`)
-        .send({ lessonId: 'lesson-2' })
+        .patch('/api/learning/courses/course-1/progress')
+        .set('Authorization', `Bearer ${firstStudent.token}`)
+        .send({
+          lessonId: 'course-1-lesson-1',
+          status: 'completed',
+        })
         .expect(200);
 
-      expect(response.body.progress.percentage).toBeGreaterThan(0);
-    });
-
-    it('should not duplicate completed lessons', async () => {
-      const userId = 'no-duplicate-user';
-      const lessonId = 'lesson-1';
-
-      // Complete lesson twice
-      await request(app).post(`/api/learning/progress/${userId}/complete`).send({ lessonId });
-
       const response = await request(app)
-        .post(`/api/learning/progress/${userId}/complete`)
-        .send({ lessonId })
+        .patch('/api/learning/courses/course-1/progress')
+        .set('Authorization', `Bearer ${secondStudent.token}`)
+        .send({
+          lessonId: 'course-1-lesson-2',
+          status: 'completed',
+        })
         .expect(200);
 
+<<<<<<< HEAD
       // Count occurrences of lesson-1
       const occurrences = response.body.progress.completedLessons.filter(
-        (id: string) => id === lessonId,
+        (id: string) => id === lessonId
       ).length;
+=======
+      expect(response.body.progress.studentId).toBe(secondStudent.userId);
+      expect(response.body.progress.completedLessons).toEqual(['course-1-lesson-2']);
+>>>>>>> 92adf5c (Course Curriculum and Student Progress API)
 
-      expect(occurrences).toBe(1);
+      const firstStudentRecord = await prisma.learningProgress.findUnique({
+        where: {
+          studentId_courseId: {
+            studentId: firstStudent.userId,
+            courseId: 'course-1',
+          },
+        },
+      });
+
+      expect(firstStudentRecord?.completedLessons).toEqual(['course-1-lesson-1']);
     });
   });
 });

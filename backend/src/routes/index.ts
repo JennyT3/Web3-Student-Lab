@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Request, Response, Router } from 'express';
 import dashboardRouter from '../dashboard/dashboard.routes.js';
 import feedbackRouter from '../feedback/feedback.routes.js';
 import userRouter from '../user/routes.js';
@@ -25,7 +25,7 @@ router.use('/generator', generatorRoutes);
 router.use('/user', userRouter);
 
 // Placeholder routes for future features
-router.use('/blockchain', (req: any, res: any) => {
+router.get('/blockchain', (req: Request, res: Response) => {
   res.json({ message: 'Blockchain feature - Full integration in progress' });
 });
 

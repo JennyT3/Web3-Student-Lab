@@ -24,54 +24,27 @@ impl CertificateContract {
 
         let cert = Certificate {
             symbol: symbol.clone(),
-            student,
-            course_name,
+            student: student.clone(),
+            course_name: course_name.clone(),
             issue_date,
         };
 
         env.storage().instance().set(&symbol, &cert);
 
+        // Emit Soroban Event
+        env.events().publish(
+            (Symbol::new(&env, "cert_issued"), symbol),
+            (student, course_name),
+        );
+
         cert
     }
 
     /// Retrieve a certificate by its symbol.
-    pub fn get_certificate(env: Env, symbol: Symbol) -> Certificate {
-        env.storage().instance().get(&symbol).unwrap()
+    pub fn get_certificate(env: Env, symbol: Symbol) -> Option<Certificate> {
+        env.storage().instance().get(&symbol)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use soroban_sdk::{symbol_short, testutils::Ledger, Env};
-
-    #[test]
-    fn issues_and_loads_certificate_with_custom_symbol() {
-        let env = Env::default();
-        env.ledger().with_mut(|ledger| ledger.timestamp = 1_234);
-
-        let symbol = symbol_short!("SOLID");
-        let student = String::from_str(&env, "Ada Lovelace");
-        let course_name = String::from_str(&env, "Rust 101");
-
-        let issued = CertificateContract::issue(
-            env.clone(),
-            symbol.clone(),
-            student.clone(),
-            course_name.clone(),
-        );
-
-        assert_eq!(
-            issued,
-            Certificate {
-                symbol: symbol.clone(),
-                student,
-                course_name,
-                issue_date: 1_234,
-            }
-        );
-
-        let stored = CertificateContract::get_certificate(env, symbol);
-        assert_eq!(stored, issued);
-    }
-}
+mod tests;

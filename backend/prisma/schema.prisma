@@ -4,7 +4,7 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
@@ -24,6 +24,7 @@ model Student {
   enrollments   Enrollment[]
   certificates  Certificate[]
   feedback      Feedback[]
+  learningProgress LearningProgress[]
 
   @@map("students")
 }
@@ -40,6 +41,7 @@ model Course {
   enrollments   Enrollment[]
   certificates  Certificate[]
   feedback      Feedback[]
+  learningProgress LearningProgress[]
 
   @@map("courses")
 }
@@ -90,12 +92,20 @@ model Feedback {
 
 model LearningProgress {
   id               String   @id @default(cuid())
-  userId           String   @unique
-  completedLessons String[] // Array of strings for PostgreSQL
-  currentModule    String   @default("mod-1")
+  studentId        String
+  courseId         String
+  completedLessons String[] // Array of lesson ids for PostgreSQL
+  currentModuleId  String?
   percentage       Int      @default(0)
+  status           String   @default("not_started")
+  lastAccessedAt   DateTime?
+  completedAt      DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, courseId])
   @@map("learning_progress")
 }

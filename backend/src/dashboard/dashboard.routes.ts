@@ -1,7 +1,21 @@
 import { Request, Response, Router } from 'express';
-import { getStudentDashboard } from './dashboard.service.js';
+import { getStats, getStudentDashboard } from './dashboard.service.js';
 
 const router = Router();
+
+/**
+ * @route   GET /api/dashboard/stats
+ * @desc    Get global platform statistics (Resilient with mock fallback)
+ * @access  Public
+ */
+router.get('/stats', async (req: Request, res: Response) => {
+  try {
+    const stats = await getStats();
+    res.json(stats);
+  } catch (_error) {
+    res.status(500).json({ error: 'Failed to fetch platform stats' });
+  }
+});
 
 /**
  * @route   GET /api/dashboard/:studentId
@@ -21,8 +35,9 @@ router.get('/:studentId', async (req: Request, res: Response) => {
     const dashboard = await getStudentDashboard(studentId);
 
     res.json(dashboard);
-  } catch (error: any) {
-    if (error.message === 'Student not found') {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    if (message === 'Student not found') {
       res.status(404).json({ error: 'Student Profile not found' });
     } else {
       res.status(500).json({ error: 'Internal server error while fetching dashboard' });

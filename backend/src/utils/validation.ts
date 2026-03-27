@@ -48,6 +48,8 @@ export const validateRequest = (schema: ZodSchema) => {
   };
 };
 
+export const validateBody = validateRequest;
+
 /**
  * Validation Middleware for Request Parameters
  * Validates URL parameters against a Zod schema

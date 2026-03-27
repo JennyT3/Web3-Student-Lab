@@ -1,192 +1,121 @@
 import { Router, Request, Response } from 'express';
-import { Module, Lesson, Progress } from './types.js';
-import prisma from '../../db/index.js';
+import { authenticate } from '../../auth/auth.middleware.js';
+import { validateBody, validateParams, validateQuery } from '../../utils/validation.js';
+import {
+  getCourseCurriculum,
+  getStudentProgress,
+  listCourses,
+  updateStudentProgress,
+} from './learning.service.js';
+import {
+  courseParamsSchema,
+  coursesQuerySchema,
+  progressUpdateSchema,
+} from './validation.schemas.js';
 
 const router = Router();
 
-// Mock data
-const modules: Module[] = [
-  {
-    id: 'mod-1',
-    title: 'Blockchain Fundamentals',
-    description: 'Learn the basics of blockchain technology',
-    lessons: [
-      {
-        id: 'lesson-1',
-        title: 'What is Blockchain?',
-        description: 'Introduction to distributed ledger technology',
-        difficulty: 'beginner',
-        completed: false,
-      },
-      {
-        id: 'lesson-2',
-        title: 'How Transactions Work',
-        description: 'Understanding transaction flow in blockchain',
-        difficulty: 'beginner',
-        completed: false,
-      },
-    ],
+router.get(
+  '/courses',
+  validateQuery(coursesQuerySchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const difficulty = typeof req.query.difficulty === 'string' ? req.query.difficulty : undefined;
+      const courses = await listCourses(difficulty);
+      res.json({ courses });
+    } catch {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   },
-  {
-    id: 'mod-2',
-    title: 'Smart Contracts',
-    description: 'Introduction to smart contracts and Soroban',
-    lessons: [
-      {
-        id: 'lesson-3',
-        title: 'Smart Contract Basics',
-        description: 'What are smart contracts and how they work',
-        difficulty: 'intermediate',
-        completed: false,
-      },
-      {
-        id: 'lesson-4',
-        title: 'Writing Soroban Contracts',
-        description: 'Learn to write smart contracts in Rust',
-        difficulty: 'intermediate',
-        completed: false,
-      },
-    ],
+);
+
+router.get(
+  '/courses/:courseId',
+  validateParams(courseParamsSchema),
+  validateQuery(coursesQuerySchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const courseId = req.params.courseId as string;
+      const difficulty = typeof req.query.difficulty === 'string' ? req.query.difficulty : undefined;
+      const course = await getCourseCurriculum(courseId, difficulty);
+
+      if (!course) {
+        res.status(404).json({ error: 'Course not found' });
+        return;
+      }
+
+      res.json({ course });
+    } catch {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   },
-];
+);
 
-// Prisma handles progress storage now
+router.get(
+  '/courses/:courseId/progress',
+  authenticate,
+  validateParams(courseParamsSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const courseId = req.params.courseId as string;
+      const course = await getCourseCurriculum(courseId);
 
-/**
- * @route   GET /api/learning/modules
- * @desc    Get all learning modules
- * @access  Public
- */
-router.get('/modules', (req: Request, res: Response) => {
-  try {
-    const difficulty = req.query.difficulty as string | undefined;
+      if (!course) {
+        res.status(404).json({ error: 'Course not found' });
+        return;
+      }
 
-    let filteredModules = modules;
+      const progress = await getStudentProgress(req.user!.id, courseId);
 
-    if (difficulty) {
-      filteredModules = modules.map((mod) => ({
-        ...mod,
-        lessons: mod.lessons.filter((lesson) => lesson.difficulty === difficulty),
-      }));
+      if (!progress) {
+        res.json({
+          progress: {
+            studentId: req.user!.id,
+            courseId,
+            completedLessons: [],
+            currentModuleId: course.modules[0]?.id ?? null,
+            percentage: 0,
+            status: 'not_started',
+            lastAccessedAt: null,
+            completedAt: null,
+          },
+        });
+        return;
+      }
+
+      res.json({ progress });
+    } catch {
+      res.status(500).json({ error: 'Internal server error' });
     }
+  },
+);
 
-    res.json({ modules: filteredModules });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+router.patch(
+  '/courses/:courseId/progress',
+  authenticate,
+  validateParams(courseParamsSchema),
+  validateBody(progressUpdateSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const courseId = req.params.courseId as string;
+      const course = await getCourseCurriculum(courseId);
 
-/**
- * @route   GET /api/learning/modules/:moduleId
- * @desc    Get a specific module by ID
- * @access  Public
- */
-router.get('/modules/:moduleId', (req: Request, res: Response) => {
-  try {
-    const moduleId = req.params.moduleId as string;
-    const module = modules.find((m) => m.id === moduleId);
+      if (!course) {
+        res.status(404).json({ error: 'Course not found' });
+        return;
+      }
 
-    if (!module) {
-      res.status(404).json({ error: 'Module not found' });
-      return;
+      const progress = await updateStudentProgress(req.user!.id, courseId, req.body);
+      res.json({ progress });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'LESSON_NOT_FOUND') {
+        res.status(404).json({ error: 'Lesson not found' });
+        return;
+      }
+
+      res.status(500).json({ error: 'Internal server error' });
     }
-
-    res.json({ module });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-/**
- * @route   GET /api/learning/progress/:userId
- * @desc    Get user learning progress
- * @access  Public
- */
-router.get('/progress/:userId', async (req: Request, res: Response) => {
-  try {
-    const userId = req.params.userId as string;
-    const progress = await prisma.learningProgress.findUnique({
-      where: { userId },
-    });
-
-    if (!progress) {
-      // Return default progress if user has no progress yet
-      res.json({
-        progress: {
-          userId,
-          completedLessons: [],
-          currentModule: 'mod-1',
-          percentage: 0,
-        },
-      });
-      return;
-    }
-
-    res.json({ progress });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-/**
- * @route   POST /api/learning/progress/:userId/complete
- * @desc    Mark a lesson as complete
- * @access  Public
- */
-router.post('/progress/:userId/complete', async (req: Request, res: Response) => {
-  try {
-    const userId = req.params.userId as string;
-    const { lessonId } = req.body;
-
-    if (!lessonId) {
-      res.status(400).json({ error: 'Lesson ID is required' });
-      return;
-    }
-
-    // Verify lesson exists
-    const lessonExists = modules.some((mod) => mod.lessons.some((l) => l.id === lessonId));
-
-    if (!lessonExists) {
-      res.status(404).json({ error: 'Lesson not found' });
-      return;
-    }
-
-    // Get user progress from DB
-    let progressRecord = await prisma.learningProgress.findUnique({
-      where: { userId },
-    });
-
-    let completedLessons = progressRecord ? progressRecord.completedLessons : [];
-    let percentage = progressRecord ? progressRecord.percentage : 0;
-
-    // Mark lesson as complete if not already
-    if (!completedLessons.includes(lessonId)) {
-      completedLessons.push(lessonId);
-
-      // Calculate new percentage
-      const totalLessons = modules.reduce((acc, mod) => acc + mod.lessons.length, 0);
-      percentage = Math.round((completedLessons.length / totalLessons) * 100);
-    }
-
-    // Save back to DB
-    const progress = await prisma.learningProgress.upsert({
-      where: { userId },
-      update: {
-        completedLessons,
-        percentage,
-      },
-      create: {
-        userId,
-        completedLessons,
-        currentModule: 'mod-1',
-        percentage,
-      },
-    });
-
-    res.json({ progress, message: 'Lesson marked as complete' });
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  },
+);
 
 export default router;

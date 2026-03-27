@@ -1,12 +1,12 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import { authenticate } from '../auth/auth.middleware.js';
 import {
-  createFeedback,
-  getFeedbackByCourse,
-  getFeedbackByStudentAndCourse,
-  updateFeedback,
-  deleteFeedback,
-  getCourseRatingSummary,
+    createFeedback,
+    deleteFeedback,
+    getCourseRatingSummary,
+    getFeedbackByCourse,
+    getFeedbackByStudentAndCourse,
+    updateFeedback,
 } from './feedback.service.js';
 import { CreateFeedbackRequest, UpdateFeedbackRequest } from './types.js';
 
@@ -120,7 +120,7 @@ router.get('/my-feedback/:courseId', authenticate, async (req: Request, res: Res
     }
 
     res.json(feedback);
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to fetch feedback' });
   }
 });

@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
       },
     });
     res.json(students);
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to fetch students' });
   }
 });
@@ -43,7 +43,7 @@ router.get('/:id', async (req, res) => {
     }
 
     res.json(student);
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to fetch student' });
   }
 });
@@ -67,7 +67,7 @@ router.post('/', async (req, res) => {
     });
 
     res.status(201).json(student);
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to create student' });
   }
 });
@@ -88,7 +88,7 @@ router.put('/:id', async (req, res) => {
     });
 
     res.json(student);
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to update student' });
   }
 });
@@ -103,7 +103,7 @@ router.delete('/:id', async (req, res) => {
     });
 
     res.status(204).send();
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to delete student' });
   }
 });
