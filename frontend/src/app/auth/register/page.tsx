@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -48,8 +48,9 @@ export default function RegisterPage() {
     try {
       await register(formData.email, formData.password, formData.firstName, formData.lastName);
       router.push('/dashboard');
-    } catch (err: any) {
-      setLocalError(err.response?.data?.error || 'Registration failed. Please try again.');
+    } catch (err) {
+      const errorResponse = err as { response?: { data?: { error?: string } } };
+      setLocalError(errorResponse.response?.data?.error || 'Registration failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

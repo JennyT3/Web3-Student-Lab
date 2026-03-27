@@ -8,7 +8,7 @@ use soroban_sdk::{
 #[test]
 fn issues_and_loads_certificate_successfully() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, CertificateContract);
+    let contract_id = env.register(CertificateContract, ());
     let client = CertificateContractClient::new(&env, &contract_id);
 
     env.ledger().with_mut(|ledger| ledger.timestamp = 1_234);
@@ -36,7 +36,7 @@ fn issues_and_loads_certificate_successfully() {
 #[test]
 fn returns_none_for_non_existent_certificate() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, CertificateContract);
+    let contract_id = env.register(CertificateContract, ());
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let symbol = symbol_short!("MISSIN");
@@ -48,7 +48,7 @@ fn returns_none_for_non_existent_certificate() {
 #[test]
 fn verifies_event_emission_on_issue() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, CertificateContract);
+    let contract_id = env.register(CertificateContract, ());
     let client = CertificateContractClient::new(&env, &contract_id);
 
     let symbol = symbol_short!("SOLID");

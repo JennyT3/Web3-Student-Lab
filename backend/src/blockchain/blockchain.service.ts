@@ -1,5 +1,14 @@
 import prisma from '../db/index.js';
 
+interface Certificate {
+  id: string;
+  studentId: string;
+  courseId: string;
+  issuedAt: Date;
+  certificateHash: string | null;
+  status: string;
+}
+
 export interface BlockchainRecord {
   id: string;
   txHash: string;
@@ -19,7 +28,7 @@ export const getStudentAchievements = async (studentId: string): Promise<Blockch
     },
   });
 
-  return certificates.map((cert: any) => ({
+  return certificates.map((cert: Certificate) => ({
     id: cert.id,
     txHash: cert.certificateHash || `0x${Math.random().toString(16).substring(2, 40)}`,
     timestamp: cert.issuedAt,

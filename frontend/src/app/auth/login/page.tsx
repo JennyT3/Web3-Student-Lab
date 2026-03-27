@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,8 +32,9 @@ export default function LoginPage() {
     try {
       await login(formData.email, formData.password);
       router.push('/dashboard');
-    } catch (err: any) {
-      setLocalError(err.response?.data?.error || 'Login failed. Please check your credentials.');
+    } catch (err) {
+      const errorResponse = err as { response?: { data?: { error?: string } } };
+      setLocalError(errorResponse.response?.data?.error || 'Login failed. Please check your credentials.');
     } finally {
       setIsSubmitting(false);
     }

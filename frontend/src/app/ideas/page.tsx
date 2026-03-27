@@ -28,7 +28,7 @@ export default function IdeasPage() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-red-600/5 rounded-full blur-[120px] pointer-events-none"></div>
 
       <div className="max-w-4xl mx-auto h-full flex flex-col items-center justify-center relative z-10">
-        
+
         {/* Header */}
         <div className="text-center mb-16 border-l-4 border-red-600 pl-8 inline-block">
           <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-4">Project <span className="text-red-500">Incubator</span></h1>
@@ -38,7 +38,7 @@ export default function IdeasPage() {
         {/* Display Area */}
         <div className="w-full bg-zinc-950 border border-white/10 rounded-[2rem] p-10 md:p-16 shadow-[0_0_50px_rgba(220,38,38,0.05)] relative overflow-hidden flex flex-col items-center">
            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-600 to-transparent"></div>
-           
+
            {!idea && !isGenerating ? (
              <div className="text-center py-10 opacity-40">
                 <div className="w-20 h-20 border-2 border-dashed border-red-600/30 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -57,7 +57,7 @@ export default function IdeasPage() {
                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] mb-4 block">Sector Integration</span>
                    <h2 className="text-3xl md:text-4xl font-black uppercase text-white tracking-widest leading-none drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">{idea.sector}</h2>
                 </div>
-                
+
                 <div className="flex items-center gap-6 justify-center">
                    <div className="h-px bg-white/10 flex-grow"></div>
                    <div className="w-4 h-4 rounded-full border border-red-600 flex items-center justify-center">
@@ -78,12 +78,12 @@ export default function IdeasPage() {
                 </div>
 
                 <div className="pt-8 opacity-50 italic text-xs text-gray-500 border-t border-white/5 font-light leading-relaxed">
-                   "Leverage {idea.tech} within the {idea.sector} ecosystem to effectively {idea.goal.toLowerCase()} using the Stellar Network's high-speed consensus."
+                   &quot;Leverage {idea.tech} within the {idea.sector} ecosystem to effectively {idea.goal.toLowerCase()} using the Stellar Network&apos;s high-speed consensus.&quot;
                 </div>
              </div>
            )}
 
-           <button 
+           <button
              onClick={generateIdea}
              disabled={isGenerating}
              className={`mt-12 px-10 py-5 text-[11px] font-black uppercase tracking-[0.3em] rounded-xl transition-all shadow-[0_0_20px_rgba(220,38,38,0.2)] hover:shadow-[0_0_40px_rgba(220,38,38,0.5)] transform active:scale-95 ${

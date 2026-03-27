@@ -3,13 +3,24 @@ import { Router } from 'express';
 const router = Router();
 
 // Robust Mock Database for 100% Demo Uptime
-let certificates: any[] = [];
+interface CertificateMock {
+  id: string;
+  studentId: string;
+  courseId: string;
+  certificateHash: string;
+  status: string;
+  issuedAt: string;
+  student: { id: string; name: string; email: string };
+  course: { id: string; title: string };
+}
+
+let certificates: CertificateMock[] = [];
 
 // GET /api/certificates - Get all certificates
 router.get('/', async (req, res) => {
   try {
     res.json(certificates);
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to fetch certificates' });
   }
 });
@@ -25,7 +36,7 @@ router.get('/:id', async (req, res) => {
     }
 
     res.json(certificate);
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to fetch certificate' });
   }
 });
@@ -36,7 +47,7 @@ router.get('/student/:studentId', async (req, res) => {
     const { studentId } = req.params;
     const studentCerts = certificates.filter((c) => c.studentId === studentId);
     res.json(studentCerts);
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to fetch student certificates' });
   }
 });
@@ -80,7 +91,7 @@ router.post('/', async (req, res) => {
 
     certificates.push(newCertificate);
     res.status(201).json(newCertificate);
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to issue certificate' });
   }
 });
@@ -96,9 +107,12 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Certificate not found' });
     }
 
-    Object.assign(certificates[index], { status, certificateHash });
-    res.json(certificates[index]);
-  } catch (error) {
+    const cert = certificates[index];
+    if (cert) {
+      Object.assign(cert, { status, certificateHash });
+      res.json(cert);
+    }
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to update certificate' });
   }
 });
@@ -109,7 +123,7 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     certificates = certificates.filter((c) => c.id !== id);
     res.status(204).send();
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to revoke certificate' });
   }
 });

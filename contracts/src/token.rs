@@ -77,7 +77,7 @@ mod tests {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_contract(None, RsTokenContract);
+        let contract_id = env.register(RsTokenContract, ());
         let client = RsTokenContractClient::new(&env, &contract_id);
 
         let certificate_contract = Address::generate(&env);
@@ -95,7 +95,7 @@ mod tests {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_contract(None, RsTokenContract);
+        let contract_id = env.register(RsTokenContract, ());
         let client = RsTokenContractClient::new(&env, &contract_id);
 
         let certificate_contract = Address::generate(&env);

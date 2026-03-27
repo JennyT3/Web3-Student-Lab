@@ -1,8 +1,8 @@
 import { getStudentAchievements } from '../blockchain/blockchain.service.js';
-import logger from '../utils/logger.js';
 import prisma from '../db/index.js';
 import { getStudentProgress } from '../routes/learning/learning.service.js';
 import { getTokenBalance } from '../token/token.service.js';
+import logger from '../utils/logger.js';
 import { Achievement, StudentDashboard, TokenBalance } from './types.js';
 
 /**
@@ -19,7 +19,7 @@ export const getStudentDashboard = async (studentId: string): Promise<StudentDas
         certificates: true,
       },
     });
-  } catch (dbError) {
+  } catch (_dbError) {
     logger.warn(`Database unreachable for student ${studentId}, using mock profile`);
   }
 
@@ -120,7 +120,7 @@ export const getStats = async () => {
       certificatesCount,
       verificationRate: '100%',
     };
-  } catch (error) {
+  } catch (_error) {
     logger.warn('Database unreachable, returning mock dashboard stats');
     // Mock statistical data for 'Connection' verification
     return {
