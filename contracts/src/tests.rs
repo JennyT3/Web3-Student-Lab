@@ -2,7 +2,7 @@ use super::*;
 use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Events, Ledger},
-    vec, Address, Env, FromVal, String, Symbol,
+    vec, Address, Bytes, Env, FromVal, String, Symbol,
 };
 
 fn setup() -> (Env, Address, CertificateContractClient<'static>) {
@@ -212,6 +212,110 @@ fn non_admin_cannot_revoke_certificate() {
     client.revoke(&attacker, &course_symbol, &student);
 }
 
+// ---------------------------------------------------------------------------
+// #162 – Meta-Transaction tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn meta_tx_issues_certificate_for_student() {
+    let (env, admin, client) = setup();
+
+    env.ledger().with_mut(|l| l.timestamp = 9_000);
+
+    let course_symbol = symbol_short!("META");
+    let student = Address::generate(&env);
+    let course_name = String::from_str(&env, "Meta Course");
+
+    let call_data = MetaTxCallData {
+        course_symbol: course_symbol.clone(),
+        student: student.clone(),
+        course_name: course_name.clone(),
+        nonce: 0,
+    };
+
+    let cert = client.execute_meta_tx(&admin, &Bytes::new(&env), &call_data);
+
+    assert_eq!(cert.student, student);
+    assert_eq!(cert.course_symbol, course_symbol);
+    assert_eq!(cert.issue_date, 9_000);
+    assert!(!cert.revoked);
+
+    // Certificate is retrievable
+    assert_eq!(
+        client.get_certificate(&course_symbol, &student),
+        Some(cert)
+    );
+}
+
+#[test]
+fn meta_tx_nonce_increments_after_execution() {
+    let (env, admin, client) = setup();
+
+    let call_data = MetaTxCallData {
+        course_symbol: symbol_short!("NONCE"),
+        student: Address::generate(&env),
+        course_name: String::from_str(&env, "Nonce Test"),
+        nonce: 0,
+    };
+
+    assert_eq!(client.get_nonce(&admin), 0);
+    client.execute_meta_tx(&admin, &Bytes::new(&env), &call_data);
+    assert_eq!(client.get_nonce(&admin), 1);
+}
+
+#[test]
+#[should_panic(expected = "invalid nonce")]
+fn meta_tx_replay_is_rejected() {
+    let (env, admin, client) = setup();
+
+    let call_data = MetaTxCallData {
+        course_symbol: symbol_short!("REPLY"),
+        student: Address::generate(&env),
+        course_name: String::from_str(&env, "Replay Test"),
+        nonce: 0,
+    };
+
+    client.execute_meta_tx(&admin, &Bytes::new(&env), &call_data.clone());
+    // Second call with same nonce must panic
+    client.execute_meta_tx(&admin, &Bytes::new(&env), &call_data);
+}
+
+#[test]
+#[should_panic(expected = "unauthorized")]
+fn meta_tx_non_admin_is_rejected() {
+    let (env, _admin, client) = setup();
+
+    let attacker = Address::generate(&env);
+    let call_data = MetaTxCallData {
+        course_symbol: symbol_short!("HACK"),
+        student: Address::generate(&env),
+        course_name: String::from_str(&env, "Hack Attempt"),
+        nonce: 0,
+    };
+
+    client.execute_meta_tx(&attacker, &Bytes::new(&env), &call_data);
+}
+
+#[test]
+fn meta_tx_emits_event() {
+    let (env, admin, client) = setup();
+
+    let course_symbol = symbol_short!("EVNT");
+    let call_data = MetaTxCallData {
+        course_symbol: course_symbol.clone(),
+        student: Address::generate(&env),
+        course_name: String::from_str(&env, "Event Test"),
+        nonce: 0,
+    };
+
+    client.execute_meta_tx(&admin, &Bytes::new(&env), &call_data);
+
+    let (addr, topics, _) = env.events().all().last().unwrap();
+    assert_eq!(addr, client.address);
+    assert_eq!(
+        Symbol::from_val(&env, &topics.get(0).unwrap()),
+        Symbol::new(&env, "meta_tx_issued")
+    );
 // ============ Dynamic Minting Caps Tests ============
 
 #[test]
