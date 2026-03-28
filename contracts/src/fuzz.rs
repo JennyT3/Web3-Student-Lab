@@ -85,6 +85,33 @@ impl Default for FuzzConfig {
     }
 }
 
+#[cfg(test)]
+fn cert_three_admins_setup(
+    env: &Env,
+) -> (Address, Address, Address, CertificateContractClient<'static>) {
+    let contract_id = env.register(CertificateContract, ());
+    let client = CertificateContractClient::new(env, &contract_id);
+    let admin_a = Address::generate(env);
+    let admin_b = Address::generate(env);
+    let admin_c = Address::generate(env);
+    client.init(&admin_a, &admin_b, &admin_c);
+    (admin_a, admin_b, admin_c, client)
+}
+
+#[cfg(test)]
+fn set_mint_cap_if_positive(
+    client: &CertificateContractClient<'_>,
+    proposer: &Address,
+    co_signer: &Address,
+    cap: u32,
+) {
+    if cap == 0 {
+        return;
+    }
+    let id = client.propose_action(proposer, &PendingAdminAction::SetMintCap(cap));
+    client.approve_action(co_signer, &id);
+}
+
 // ============ Mint Cap Boundary Fuzzing ============
 
 /// Property: Minting up to cap should always succeed
@@ -97,16 +124,14 @@ mod mint_cap_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let mut rng = SimpleRng::new(seed);
 
         // Random cap between 1 and 100
         let mint_cap = 1 + rng.next_u32(100);
-        client.set_mint_cap(&admin, &mint_cap);
+        set_mint_cap_if_positive(&client, &admin_a, &admin_b, mint_cap);
 
         let course_symbol = symbol_short!("CAPF");
         let course_name = String::from_str(&env, "Fuzz Cap Test");
@@ -121,7 +146,7 @@ mod mint_cap_fuzzing {
                 students.push_back(Address::generate(&env));
             }
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                client.issue(&course_symbol, &students, &course_name)
+                client.issue(&admin_a, &course_symbol, &students, &course_name)
             }));
             assert!(result.is_ok(), "Issue should succeed when batch_size <= mint_cap");
         } else {
@@ -131,7 +156,7 @@ mod mint_cap_fuzzing {
                 students.push_back(Address::generate(&env));
             }
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                client.issue(&course_symbol, &students, &course_name)
+                client.issue(&admin_a, &course_symbol, &students, &course_name)
             }));
             assert!(result.is_err(), "Issue should fail when batch_size > mint_cap");
         }
@@ -153,13 +178,10 @@ mod mint_cap_fuzzing {
             let env = Env::default();
             env.mock_all_auths();
 
-            let contract_id = env.register(CertificateContract, ());
-            let client = CertificateContractClient::new(&env, &contract_id);
-            let admin = Address::generate(&env);
-            client.init(&admin);
+            let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
 
             if cap > 0 {
-                client.set_mint_cap(&admin, &cap);
+                set_mint_cap_if_positive(&client, &admin_a, &admin_b, cap);
             }
 
             let course_symbol = symbol_short!("EDG");
@@ -171,7 +193,7 @@ mod mint_cap_fuzzing {
 
             if cap > 0 && batch > 0 && batch <= cap {
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    client.issue(&course_symbol, &students, &course_name)
+                    client.issue(&admin_a, &course_symbol, &students, &course_name)
                 }));
                 assert!(result.is_ok());
             }
@@ -184,13 +206,11 @@ mod mint_cap_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let mint_cap = 10;
-        client.set_mint_cap(&admin, &mint_cap);
+        set_mint_cap_if_positive(&client, &admin_a, &admin_b, mint_cap);
 
         let course_symbol = symbol_short!("CUM");
         let course_name = String::from_str(&env, "Cumulative Test");
@@ -200,21 +220,21 @@ mod mint_cap_fuzzing {
         for _ in 0..5 {
             students.push_back(Address::generate(&env));
         }
-        client.issue(&course_symbol, &students, &course_name);
+        client.issue(&admin_a, &course_symbol, &students, &course_name);
 
         // Issue 5 more - should succeed
         let mut students = Vec::new(&env);
         for _ in 0..5 {
             students.push_back(Address::generate(&env));
         }
-        client.issue(&course_symbol, &students, &course_name);
+        client.issue(&admin_a, &course_symbol, &students, &course_name);
 
         // Try to issue 1 more - should fail
         let mut students = Vec::new(&env);
         students.push_back(Address::generate(&env));
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            client.issue(&course_symbol, &students, &course_name)
+            client.issue(&admin_a, &course_symbol, &students, &course_name)
         }));
         assert!(result.is_err(), "Third batch should exceed cap");
     }
@@ -232,17 +252,15 @@ mod storage_collision_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let student = Address::generate(&env);
         let course_name = String::from_str(&env, "Course");
 
         // Issue for course A
         let course_a = symbol_short!("COURA");
-        client.issue(&course_a, &vec![&env, student.clone()], &course_name);
+        client.issue(&admin_a, &course_a, &vec![&env, student.clone()], &course_name);
 
         // Certificate should exist for course A
         let cert_a = client.get_certificate(&course_a, &student).unwrap();
@@ -260,10 +278,8 @@ mod storage_collision_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let course = symbol_short!("SOLID");
         let course_name = String::from_str(&env, "Course");
@@ -272,7 +288,7 @@ mod storage_collision_fuzzing {
         let student_b = Address::generate(&env);
 
         // Issue for student A
-        client.issue(&course, &vec![&env, student_a.clone()], &course_name);
+        client.issue(&admin_a, &course, &vec![&env, student_a.clone()], &course_name);
 
         // Student A should have certificate
         let cert_a = client.get_certificate(&course, &student_a).unwrap();
@@ -288,10 +304,8 @@ mod storage_collision_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let course_name = String::from_str(&env, "Course");
 
@@ -306,6 +320,7 @@ mod storage_collision_fuzzing {
         // Issue certificates for each student-course combination
         for (i, course) in courses.iter().enumerate() {
             client.issue(
+                &admin_a,
                 course,
                 &vec![&env, students[i].clone()],
                 &course_name,
@@ -340,10 +355,8 @@ mod storage_collision_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let course_name = String::from_str(&env, "Course");
         let course = symbol_short!("ISOL");
@@ -353,6 +366,7 @@ mod storage_collision_fuzzing {
 
         // Issue for both students
         client.issue(
+            &admin_a,
             &course,
             &vec![&env, student_a.clone(), student_b.clone()],
             &course_name,
@@ -382,13 +396,11 @@ mod period_boundary_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         // Set low mint cap
-        client.set_mint_cap(&admin, &2);
+        set_mint_cap_if_positive(&client, &admin_a, &admin_b, 2);
 
         let course_name = String::from_str(&env, "Period Test");
 
@@ -396,12 +408,12 @@ mod period_boundary_fuzzing {
         let course = symbol_short!("PRD0");
         let student1 = Address::generate(&env);
         let student2 = Address::generate(&env);
-        client.issue(&course, &vec![&env, student1, student2], &course_name);
+        client.issue(&admin_a, &course, &vec![&env, student1, student2], &course_name);
 
         // Try to issue more at period 0 - should fail
         let student3 = Address::generate(&env);
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            client.issue(&course, &vec![&env, student3], &course_name)
+            client.issue(&admin_a, &course, &vec![&env, student3], &course_name)
         }));
         assert!(result.is_err());
 
@@ -414,7 +426,7 @@ mod period_boundary_fuzzing {
         let course2 = symbol_short!("PRD1");
         let student4 = Address::generate(&env);
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            client.issue(&course2, &vec![&env, student4], &course_name)
+            client.issue(&admin_a, &course2, &vec![&env, student4], &course_name)
         }));
         assert!(result.is_ok(), "Period 1 should have fresh mint counter");
     }
@@ -424,13 +436,11 @@ mod period_boundary_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let mint_cap = 5;
-        client.set_mint_cap(&admin, &mint_cap);
+        set_mint_cap_if_positive(&client, &admin_a, &admin_b, mint_cap);
 
         let course_name = String::from_str(&env, "Multi Period");
 
@@ -438,7 +448,7 @@ mod period_boundary_fuzzing {
         for i in 0..5 {
             let course = Symbol::new(&env, &format!("P0C{}", i));
             let student = Address::generate(&env);
-            client.issue(&course, &vec![&env, student], &course_name);
+            client.issue(&admin_a, &course, &vec![&env, student], &course_name);
         }
 
         // Advance through multiple periods
@@ -452,7 +462,7 @@ mod period_boundary_fuzzing {
 
             // Should be able to mint at least one in each new period
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                client.issue(&course, &vec![&env, student], &course_name)
+                client.issue(&admin_a, &course, &vec![&env, student], &course_name)
             }));
             assert!(
                 result.is_ok(),
@@ -467,10 +477,8 @@ mod period_boundary_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         // Test very high ledger sequence (near u32 max)
         let high_sequence = u32::MAX - 100;
@@ -484,7 +492,7 @@ mod period_boundary_fuzzing {
 
         // Should handle high ledger sequence without overflow in period calculation
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            client.issue(&course, &vec![&env, student], &course_name)
+            client.issue(&admin_a, &course, &vec![&env, student], &course_name)
         }));
         // This should succeed (or fail for other reasons, but not overflow)
         let _ = result;
@@ -610,10 +618,8 @@ mod event_emission_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let num_students = 5;
         let course_symbol = symbol_short!("EVNT");
@@ -623,7 +629,7 @@ mod event_emission_fuzzing {
         for _ in 0..num_students {
             students.push_back(Address::generate(&env));
         }
-        client.issue(&course_symbol, &students, &course_name);
+        client.issue(&admin_a, &course_symbol, &students, &course_name);
 
         // Count cert_issued events
         let all_events = env.events().all();
@@ -649,16 +655,14 @@ mod event_emission_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let course_symbol = symbol_short!("REVOK");
         let course_name = String::from_str(&env, "Revoke Test");
         let student = Address::generate(&env);
 
-        client.issue(&course_symbol, &vec![&env, student.clone()], &course_name);
+        client.issue(&admin_a, &course_symbol, &vec![&env, student.clone()], &course_name);
         client.revoke(&admin, &course_symbol, &student);
 
         // Check for cert_revoked event
@@ -693,13 +697,11 @@ mod stress_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         // Set large mint cap
-        client.set_mint_cap(&admin, &1000);
+        set_mint_cap_if_positive(&client, &admin_a, &admin_b, 1000);
 
         let course_name = String::from_str(&env, "Large Batch");
         let course = symbol_short!("LARGE");
@@ -714,7 +716,7 @@ mod stress_fuzzing {
             }
 
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                client.issue(&course, &students, &course_name)
+                client.issue(&admin_a, &course, &students, &course_name)
             }));
 
             if batch_size <= 1000 {
@@ -728,12 +730,10 @@ mod stress_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
-        client.set_mint_cap(&admin, &100);
+        set_mint_cap_if_positive(&client, &admin_a, &admin_b, 100);
 
         let course_name = String::from_str(&env, "Mint Revoke");
         let course = symbol_short!("MNTRV");
@@ -743,7 +743,7 @@ mod stress_fuzzing {
         for _ in 0..10 {
             students.push_back(Address::generate(&env));
         }
-        client.issue(&course, &students, &course_name);
+        client.issue(&admin_a, &course, &students, &course_name);
 
         // Revoke half
         for i in 0..5 {
@@ -756,7 +756,7 @@ mod stress_fuzzing {
         for _ in 0..5 {
             new_students.push_back(Address::generate(&env));
         }
-        client.issue(&course, &new_students, &course_name);
+        client.issue(&admin_a, &course, &new_students, &course_name);
 
         // Verify counts
         let total_issued = 10 + 5;
@@ -783,33 +783,25 @@ mod stress_fuzzing {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (_admin_a, _admin_b, _admin_c, _client) = cert_three_admins_setup(&env);
 
         let course_name = String::from_str(&env, "Edge Cases");
         let course = symbol_short!("EDGE");
 
-        // Empty student list - should emit event but issue 0 certificates
-        let empty_students: Vec<Address> = vec![];
         let env2 = Env::default();
         env2.mock_all_auths();
-        let contract_id2 = env2.register(CertificateContract, ());
-        let client2 = CertificateContractClient::new(&env2, &contract_id2);
-        let admin2 = Address::generate(&env2);
-        client2.init(&admin2);
+        let (admin2, admin2_b, _admin2_c, client2) = cert_three_admins_setup(&env2);
 
         let mut empty_vec = Vec::new(&env2);
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            client2.issue(&course, &empty_vec, &course_name)
+            client2.issue(&admin2, &course, &empty_vec, &course_name)
         }));
         assert!(result.is_ok(), "Empty student list should succeed");
 
         // Single student
         let single_student = Address::generate(&env2);
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            client2.issue(&course, &vec![&env2, single_student], &course_name)
+            client2.issue(&admin2, &course, &vec![&env2, single_student], &course_name)
         }));
         assert!(result.is_ok(), "Single student should succeed");
 
@@ -830,13 +822,12 @@ mod regression_tests {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            client.set_mint_cap(&admin, &0)
+            let id = client.propose_action(&admin_a, &PendingAdminAction::SetMintCap(0));
+            client.approve_action(&admin_b, &id);
         }));
         assert!(result.is_err(), "Setting mint cap to 0 should fail");
     }
@@ -847,13 +838,14 @@ mod regression_tests {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            client.init(&admin)
+            let x = Address::generate(&env);
+            let y = Address::generate(&env);
+            let z = Address::generate(&env);
+            client.init(&x, &y, &z);
         }));
         assert!(result.is_err(), "Double initialization should fail");
     }
@@ -864,16 +856,14 @@ mod regression_tests {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let course_name = String::from_str(&env, "Test");
         let course = symbol_short!("UNAUTH");
         let student = Address::generate(&env);
 
-        client.issue(&course, &vec![&env, student.clone()], &course_name);
+        client.issue(&admin_a, &course, &vec![&env, student.clone()], &course_name);
 
         let non_admin = Address::generate(&env);
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -888,10 +878,8 @@ mod regression_tests {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register(CertificateContract, ());
-        let client = CertificateContractClient::new(&env, &contract_id);
-        let admin = Address::generate(&env);
-        client.init(&admin);
+        let (admin_a, admin_b, _admin_c, client) = cert_three_admins_setup(&env);
+        let admin = admin_a;
 
         let course = symbol_short!("MISS");
         let student = Address::generate(&env);

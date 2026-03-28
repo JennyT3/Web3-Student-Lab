@@ -19,7 +19,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                 },
                 {
-                  "symbol": "SOLID"
+                  "symbol": "EVNT"
                 },
                 {
                   "vec": [
@@ -32,7 +32,7 @@
                   ]
                 },
                 {
-                  "string": "Rust 101"
+                  "string": "Event Course"
                 }
               ]
             }
@@ -222,7 +222,7 @@
                                 "symbol": "course_symbol"
                               },
                               "val": {
-                                "symbol": "SOLID"
+                                "symbol": "EVNT"
                               }
                             },
                             {
@@ -242,7 +242,7 @@
                                 "symbol": "course_name"
                               },
                               "val": {
-                                "string": "Rust 101"
+                                "string": "Event Course"
                               }
                             },
                             {
@@ -250,7 +250,7 @@
                                 "symbol": "course_symbol"
                               },
                               "val": {
-                                "symbol": "SOLID"
+                                "symbol": "EVNT"
                               }
                             },
                             {
@@ -288,7 +288,7 @@
                                 "symbol": "course_symbol"
                               },
                               "val": {
-                                "symbol": "SOLID"
+                                "symbol": "EVNT"
                               }
                             },
                             {
@@ -308,7 +308,7 @@
                                 "symbol": "course_name"
                               },
                               "val": {
-                                "string": "Rust 101"
+                                "string": "Event Course"
                               }
                             },
                             {
@@ -316,7 +316,7 @@
                                 "symbol": "course_symbol"
                               },
                               "val": {
-                                "symbol": "SOLID"
+                                "symbol": "EVNT"
                               }
                             },
                             {
@@ -425,7 +425,7 @@
                 "symbol": "cert_issued"
               },
               {
-                "symbol": "SOLID"
+                "symbol": "EVNT"
               }
             ],
             "data": {
@@ -434,7 +434,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
                 },
                 {
-                  "string": "Rust 101"
+                  "string": "Event Course"
                 }
               ]
             }
@@ -455,7 +455,7 @@
                 "symbol": "cert_issued"
               },
               {
-                "symbol": "SOLID"
+                "symbol": "EVNT"
               }
             ],
             "data": {
@@ -464,7 +464,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
                 },
                 {
-                  "string": "Rust 101"
+                  "string": "Event Course"
                 }
               ]
             }

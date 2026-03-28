@@ -7,6 +7,7 @@ use soroban_sdk::{
 enum DataKey {
     CertificateContract,
     Balance(Address, u32),
+    MintPaused,
 }
 
 #[contracterror]
@@ -15,6 +16,7 @@ pub enum TokenError {
     AlreadyInitialized = 1,
     NotAuthorized = 2,
     InvalidAmount = 3,
+    ContractPaused = 4,
 }
 
 #[contract]
@@ -31,12 +33,46 @@ impl RsTokenContract {
         env.storage()
             .instance()
             .set(&DataKey::CertificateContract, &certificate_contract);
+        env.storage()
+            .instance()
+            .set(&DataKey::MintPaused, &false);
+    }
+
+    fn require_mint_not_paused(env: &Env) {
+        let paused: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::MintPaused)
+            .unwrap_or(false);
+        if paused {
+            panic_with_error!(env, TokenError::ContractPaused);
+        }
+    }
+
+    /// Only the certificate contract may pause minting (invoked when the cert contract pauses).
+    pub fn set_mint_pause(env: Env, caller: Address, paused: bool) {
+        caller.require_auth();
+
+        let certificate_contract: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::CertificateContract)
+            .unwrap();
+
+        if caller != certificate_contract {
+            panic_with_error!(&env, TokenError::NotAuthorized);
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::MintPaused, &paused);
     }
 
     /// Mints non-transferable RS-Tokens to a student for a specific token ID.
     /// Only the configured certificate contract address may call this.
     pub fn mint(env: Env, caller: Address, student: Address, token_id: u32, amount: i128) {
         caller.require_auth();
+        Self::require_mint_not_paused(&env);
 
         let certificate_contract: Address = env
             .storage()
@@ -134,6 +170,23 @@ mod tests {
 
         client.init(&certificate_contract);
         client.mint(&unauthorized, &student, &1, &10);
+    }
+
+    #[test]
+    #[should_panic]
+    fn rejects_mint_when_paused() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register(RsTokenContract, ());
+        let client = RsTokenContractClient::new(&env, &contract_id);
+
+        let certificate_contract = Address::generate(&env);
+        let student = Address::generate(&env);
+
+        client.init(&certificate_contract);
+        client.set_mint_pause(&certificate_contract, &true);
+        client.mint(&certificate_contract, &student, &1, &10);
     }
 
     #[test]
