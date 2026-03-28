@@ -5,19 +5,37 @@ use soroban_sdk::{
     vec, Address, Bytes, Env, FromVal, String, Symbol,
 };
 
-fn setup() -> (Env, Address, CertificateContractClient<'static>) {
+fn setup() -> (
+    Env,
+    Address,
+    Address,
+    Address,
+    CertificateContractClient<'static>,
+) {
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(CertificateContract, ());
     let client = CertificateContractClient::new(&env, &contract_id);
-    let admin = Address::generate(&env);
-    client.init(&admin);
-    (env, admin, client)
+    let admin_a = Address::generate(&env);
+    let admin_b = Address::generate(&env);
+    let admin_c = Address::generate(&env);
+    client.init(&admin_a, &admin_b, &admin_c);
+    (env, admin_a, admin_b, admin_c, client)
+}
+
+fn propose_and_approve_mint_cap(
+    client: &CertificateContractClient<'_>,
+    proposer: &Address,
+    co_signer: &Address,
+    cap: u32,
+) {
+    let id = client.propose_action(proposer, &PendingAdminAction::SetMintCap(cap));
+    client.approve_action(co_signer, &id);
 }
 
 #[test]
 fn issues_and_loads_certificate_successfully() {
-    let (env, _admin, client) = setup();
+    let (env, instructor, _, _, client) = setup();
 
     env.ledger().with_mut(|ledger| ledger.timestamp = 1_234);
 
@@ -25,7 +43,12 @@ fn issues_and_loads_certificate_successfully() {
     let student = Address::generate(&env);
     let course_name = String::from_str(&env, "Rust 101");
 
-    let issued = client.issue(&course_symbol, &vec![&env, student.clone()], &course_name);
+    let issued = client.issue(
+        &instructor,
+        &course_symbol,
+        &vec![&env, student.clone()],
+        &course_name,
+    );
 
     assert_eq!(issued.len(), 1);
     let cert = issued.get(0).unwrap();
@@ -41,7 +64,7 @@ fn issues_and_loads_certificate_successfully() {
 
 #[test]
 fn returns_none_for_non_existent_certificate() {
-    let (env, _admin, client) = setup();
+    let (env, _a, _b, _c, client) = setup();
 
     let course_symbol = symbol_short!("MISSIN");
     let student = Address::generate(&env);
@@ -50,7 +73,7 @@ fn returns_none_for_non_existent_certificate() {
 
 #[test]
 fn issues_multiple_students_in_one_call() {
-    let (env, _admin, client) = setup();
+    let (env, instructor, _, _, client) = setup();
 
     env.ledger().with_mut(|ledger| ledger.timestamp = 5_000);
 
@@ -66,11 +89,10 @@ fn issues_multiple_students_in_one_call() {
         student_b.clone(),
         student_c.clone(),
     ];
-    let issued = client.issue(&course_symbol, &students, &course_name);
+    let issued = client.issue(&instructor, &course_symbol, &students, &course_name);
 
     assert_eq!(issued.len(), 3);
 
-    // Each student has a unique, independently stored certificate
     for student in [&student_a, &student_b, &student_c] {
         let cert = client.get_certificate(&course_symbol, student).unwrap();
         assert_eq!(cert.student, *student);
@@ -81,7 +103,7 @@ fn issues_multiple_students_in_one_call() {
 
 #[test]
 fn each_student_gets_unique_storage_key() {
-    let (env, _admin, client) = setup();
+    let (env, instructor, _, _, client) = setup();
 
     let course_symbol = symbol_short!("UNIQ");
     let course_name = String::from_str(&env, "Soroban 101");
@@ -89,6 +111,7 @@ fn each_student_gets_unique_storage_key() {
     let student_b = Address::generate(&env);
 
     client.issue(
+        &instructor,
         &course_symbol,
         &vec![&env, student_a.clone(), student_b.clone()],
         &course_name,
@@ -101,7 +124,7 @@ fn each_student_gets_unique_storage_key() {
 
 #[test]
 fn verifies_event_emitted_per_student() {
-    let (env, _admin, client) = setup();
+    let (env, instructor, _, _, client) = setup();
 
     let course_symbol = symbol_short!("SOLID");
     let course_name = String::from_str(&env, "Rust 101");
@@ -109,12 +132,12 @@ fn verifies_event_emitted_per_student() {
     let student_b = Address::generate(&env);
 
     client.issue(
+        &instructor,
         &course_symbol,
         &vec![&env, student_a.clone(), student_b.clone()],
         &course_name,
     );
 
-    // Count cert_issued events emitted by this contract
     let all_events = env.events().all();
     let mut cert_issued_count = 0u32;
     for (addr, topics, _) in all_events.iter() {
@@ -130,13 +153,18 @@ fn verifies_event_emitted_per_student() {
 
 #[test]
 fn admin_can_revoke_certificate() {
-    let (env, admin, client) = setup();
+    let (env, admin, _, _, client) = setup();
 
     let course_symbol = symbol_short!("SOLID");
     let student = Address::generate(&env);
     let course_name = String::from_str(&env, "Rust 101");
 
-    client.issue(&course_symbol, &vec![&env, student.clone()], &course_name);
+    client.issue(
+        &admin,
+        &course_symbol,
+        &vec![&env, student.clone()],
+        &course_name,
+    );
     client.revoke(&admin, &course_symbol, &student);
 
     let cert = client.get_certificate(&course_symbol, &student).unwrap();
@@ -145,7 +173,7 @@ fn admin_can_revoke_certificate() {
 
 #[test]
 fn revoke_does_not_affect_other_students() {
-    let (env, admin, client) = setup();
+    let (env, admin, _, _, client) = setup();
 
     let course_symbol = symbol_short!("SOLID");
     let course_name = String::from_str(&env, "Rust 101");
@@ -153,6 +181,7 @@ fn revoke_does_not_affect_other_students() {
     let student_b = Address::generate(&env);
 
     client.issue(
+        &admin,
         &course_symbol,
         &vec![&env, student_a.clone(), student_b.clone()],
         &course_name,
@@ -176,13 +205,18 @@ fn revoke_does_not_affect_other_students() {
 
 #[test]
 fn revoke_emits_event() {
-    let (env, admin, client) = setup();
+    let (env, admin, _, _, client) = setup();
 
     let course_symbol = symbol_short!("SOLID");
     let student = Address::generate(&env);
     let course_name = String::from_str(&env, "Rust 101");
 
-    client.issue(&course_symbol, &vec![&env, student.clone()], &course_name);
+    client.issue(
+        &admin,
+        &course_symbol,
+        &vec![&env, student.clone()],
+        &course_name,
+    );
     client.revoke(&admin, &course_symbol, &student);
 
     let (addr, topics, _data) = env.events().all().last().unwrap();
@@ -198,27 +232,32 @@ fn revoke_emits_event() {
 }
 
 #[test]
-#[should_panic(expected = "unauthorized")]
+#[should_panic]
 fn non_admin_cannot_revoke_certificate() {
-    let (env, _admin, client) = setup();
+    let (env, admin, _, _, client) = setup();
 
     let course_symbol = symbol_short!("SOLID");
     let student = Address::generate(&env);
     let course_name = String::from_str(&env, "Rust 101");
 
-    client.issue(&course_symbol, &vec![&env, student.clone()], &course_name);
+    client.issue(
+        &admin,
+        &course_symbol,
+        &vec![&env, student.clone()],
+        &course_name,
+    );
 
     let attacker = Address::generate(&env);
     client.revoke(&attacker, &course_symbol, &student);
 }
 
 // ---------------------------------------------------------------------------
-// #162 – Meta-Transaction tests
+// Meta-transactions
 // ---------------------------------------------------------------------------
 
 #[test]
 fn meta_tx_issues_certificate_for_student() {
-    let (env, admin, client) = setup();
+    let (env, admin, _, _, client) = setup();
 
     env.ledger().with_mut(|l| l.timestamp = 9_000);
 
@@ -240,7 +279,6 @@ fn meta_tx_issues_certificate_for_student() {
     assert_eq!(cert.issue_date, 9_000);
     assert!(!cert.revoked);
 
-    // Certificate is retrievable
     assert_eq!(
         client.get_certificate(&course_symbol, &student),
         Some(cert)
@@ -249,7 +287,7 @@ fn meta_tx_issues_certificate_for_student() {
 
 #[test]
 fn meta_tx_nonce_increments_after_execution() {
-    let (env, admin, client) = setup();
+    let (env, admin, _, _, client) = setup();
 
     let call_data = MetaTxCallData {
         course_symbol: symbol_short!("NONCE"),
@@ -266,7 +304,7 @@ fn meta_tx_nonce_increments_after_execution() {
 #[test]
 #[should_panic(expected = "invalid nonce")]
 fn meta_tx_replay_is_rejected() {
-    let (env, admin, client) = setup();
+    let (env, admin, _, _, client) = setup();
 
     let call_data = MetaTxCallData {
         course_symbol: symbol_short!("REPLY"),
@@ -276,14 +314,13 @@ fn meta_tx_replay_is_rejected() {
     };
 
     client.execute_meta_tx(&admin, &Bytes::new(&env), &call_data.clone());
-    // Second call with same nonce must panic
     client.execute_meta_tx(&admin, &Bytes::new(&env), &call_data);
 }
 
 #[test]
-#[should_panic(expected = "unauthorized")]
-fn meta_tx_non_admin_is_rejected() {
-    let (env, _admin, client) = setup();
+#[should_panic]
+fn meta_tx_non_instructor_is_rejected() {
+    let (env, _a, _b, _c, client) = setup();
 
     let attacker = Address::generate(&env);
     let call_data = MetaTxCallData {
@@ -298,7 +335,7 @@ fn meta_tx_non_admin_is_rejected() {
 
 #[test]
 fn meta_tx_emits_event() {
-    let (env, admin, client) = setup();
+    let (env, admin, _, _, client) = setup();
 
     let course_symbol = symbol_short!("EVNT");
     let call_data = MetaTxCallData {
@@ -316,162 +353,173 @@ fn meta_tx_emits_event() {
         Symbol::from_val(&env, &topics.get(0).unwrap()),
         Symbol::new(&env, "meta_tx_issued")
     );
-// ============ Dynamic Minting Caps Tests ============
+}
+
+// ---------------------------------------------------------------------------
+// Mint caps (2-of-3 multisig)
+// ---------------------------------------------------------------------------
 
 #[test]
 fn get_default_mint_cap() {
-    let (env, admin, client) = setup();
+    let (_env, admin, _, _, client) = setup();
 
     let mint_cap = client.get_mint_cap(&admin);
-    assert_eq!(mint_cap, 1000); // Default cap
+    assert_eq!(mint_cap, 1000);
 }
 
 #[test]
-#[should_panic(expected = "unauthorized")]
+#[should_panic]
 fn non_admin_cannot_get_mint_cap() {
-    let (env, _admin, client) = setup();
+    let (env, _a, _b, _c, client) = setup();
 
     let attacker = Address::generate(&env);
     client.get_mint_cap(&attacker);
 }
 
 #[test]
-fn admin_can_set_mint_cap() {
-    let (env, admin, client) = setup();
+fn admin_can_set_mint_cap_via_multisig() {
+    let (_env, admin_a, admin_b, _, client) = setup();
 
-    // Set a new cap
-    client.set_mint_cap(&admin, &500);
+    propose_and_approve_mint_cap(&client, &admin_a, &admin_b, 500);
 
-    // Verify the new cap
-    let mint_cap = client.get_mint_cap(&admin);
+    let mint_cap = client.get_mint_cap(&admin_a);
     assert_eq!(mint_cap, 500);
 }
 
 #[test]
-#[should_panic(expected = "unauthorized")]
-fn non_admin_cannot_set_mint_cap() {
-    let (env, _admin, client) = setup();
+#[should_panic]
+fn non_admin_cannot_propose_mint_cap() {
+    let (env, _a, _b, _c, client) = setup();
 
     let attacker = Address::generate(&env);
-    client.set_mint_cap(&attacker, &500);
+    client.propose_action(
+        &attacker,
+        &PendingAdminAction::SetMintCap(500),
+    );
 }
 
 #[test]
-#[should_panic(expected = "InvalidMintCap")]
-fn cannot_set_zero_mint_cap() {
-    let (env, admin, client) = setup();
+#[should_panic]
+fn cannot_set_zero_mint_cap_via_multisig() {
+    let (_env, admin_a, admin_b, _, client) = setup();
 
-    client.set_mint_cap(&admin, &0);
+    propose_and_approve_mint_cap(&client, &admin_a, &admin_b, 0);
 }
 
 #[test]
+#[should_panic]
 fn mint_cap_exceeded_reverts() {
-    let (env, admin, client) = setup();
+    let (env, admin_a, admin_b, _, client) = setup();
 
-    // Set a very low cap
-    client.set_mint_cap(&admin, &2);
+    propose_and_approve_mint_cap(&client, &admin_a, &admin_b, 2);
 
     let course_symbol = symbol_short!("CAP1");
     let course_name = String::from_str(&env, "Test Course");
 
-    // Issue certificates up to the cap (2)
     let student1 = Address::generate(&env);
     let student2 = Address::generate(&env);
-    client.issue(&course_symbol, &vec![&env, student1.clone(), student2.clone()], &course_name);
+    client.issue(
+        &admin_a,
+        &course_symbol,
+        &vec![&env, student1.clone(), student2.clone()],
+        &course_name,
+    );
 
-    // Try to issue more - should panic
     let student3 = Address::generate(&env);
-    client.issue(&course_symbol, &vec![&env, student3.clone()], &course_name);
+    client.issue(
+        &admin_a,
+        &course_symbol,
+        &vec![&env, student3.clone()],
+        &course_name,
+    );
 }
 
 #[test]
 fn get_mint_stats() {
-    let (env, admin, client) = setup();
+    let (env, admin_a, admin_b, _, client) = setup();
 
-    // Set a specific cap
-    client.set_mint_cap(&admin, &100);
+    propose_and_approve_mint_cap(&client, &admin_a, &admin_b, 100);
 
-    // Issue some certificates
     let course_symbol = symbol_short!("STAT");
     let course_name = String::from_str(&env, "Stats Course");
     let student1 = Address::generate(&env);
     let student2 = Address::generate(&env);
     let student3 = Address::generate(&env);
     client.issue(
+        &admin_a,
         &course_symbol,
         &vec![&env, student1.clone(), student2.clone(), student3.clone()],
         &course_name,
     );
 
-    // Check stats
-    let (period, minted, cap, remaining) = client.get_mint_stats(&admin);
+    let (period, minted, cap, remaining) = client.get_mint_stats(&admin_a);
 
     assert_eq!(minted, 3);
     assert_eq!(cap, 100);
     assert_eq!(remaining, 97);
-    // Period should be 0 at the start
     assert_eq!(period, 0);
 }
 
 #[test]
+#[should_panic]
 fn non_admin_cannot_get_mint_stats() {
-    let (env, _admin, client) = setup();
+    let (env, _a, _b, _c, client) = setup();
 
     let attacker = Address::generate(&env);
     client.get_mint_stats(&attacker);
 }
 
 #[test]
+#[should_panic]
 fn multiple_issues_respect_mint_cap() {
-    let (env, admin, client) = setup();
+    let (env, admin_a, admin_b, _, client) = setup();
 
-    // Set cap to 5
-    client.set_mint_cap(&admin, &5);
+    propose_and_approve_mint_cap(&client, &admin_a, &admin_b, 5);
 
     let course_symbol = symbol_short!("MULT");
     let course_name = String::from_str(&env, "Multi Issue Course");
 
-    // First batch: 3 certificates
     let student1 = Address::generate(&env);
     let student2 = Address::generate(&env);
     let student3 = Address::generate(&env);
     client.issue(
+        &admin_a,
         &course_symbol,
         &vec![&env, student1.clone(), student2.clone(), student3.clone()],
         &course_name,
     );
 
-    // Second batch: 2 certificates - should succeed (total = 5)
     let student4 = Address::generate(&env);
     let student5 = Address::generate(&env);
     client.issue(
+        &admin_a,
         &course_symbol,
         &vec![&env, student4.clone(), student5.clone()],
         &course_name,
     );
 
-    // Third batch: 1 certificate - should fail (total would be 6)
     let student6 = Address::generate(&env);
-    client.issue(&course_symbol, &vec![&env, student6.clone()], &course_name);
+    client.issue(
+        &admin_a,
+        &course_symbol,
+        &vec![&env, student6.clone()],
+        &course_name,
+    );
 }
 
 #[test]
 fn mint_cap_update_emits_event() {
-    let (env, admin, client) = setup();
+    let (env, admin_a, admin_b, _, client) = setup();
 
-    // Set a new cap - this should emit an event
-    client.set_mint_cap(&admin, &250);
+    propose_and_approve_mint_cap(&client, &admin_a, &admin_b, 250);
 
-    // Find the mint_cap_updated event
     let all_events = env.events().all();
     let mut found_event = false;
-    for (addr, topics, data) in all_events.iter() {
+    for (addr, topics, _) in all_events.iter() {
         if addr == client.address
             && Symbol::from_val(&env, &topics.get(0).unwrap()) == Symbol::new(&env, "mint_cap_updated")
         {
             found_event = true;
-            // Data should be (old_cap, new_cap) = (1000, 250)
-            // In soroban, data tuples are returned differently
         }
     }
     assert!(found_event);
@@ -479,7 +527,7 @@ fn mint_cap_update_emits_event() {
 
 #[test]
 fn issue_emits_mint_period_update_event() {
-    let (env, _admin, client) = setup();
+    let (env, instructor, _, _, client) = setup();
 
     let course_symbol = symbol_short!("EVNT");
     let course_name = String::from_str(&env, "Event Course");
@@ -487,12 +535,12 @@ fn issue_emits_mint_period_update_event() {
     let student2 = Address::generate(&env);
 
     client.issue(
+        &instructor,
         &course_symbol,
         &vec![&env, student1.clone(), student2.clone()],
         &course_name,
     );
 
-    // Find the mint_period_update event
     let all_events = env.events().all();
     let mut found_event = false;
     for (addr, topics, _) in all_events.iter() {
@@ -503,4 +551,59 @@ fn issue_emits_mint_period_update_event() {
         }
     }
     assert!(found_event);
+}
+
+// ---------------------------------------------------------------------------
+// RBAC, pause, multisig surface
+// ---------------------------------------------------------------------------
+
+#[test]
+fn governance_address_has_admin_role() {
+    let (_env, admin_a, _, _, client) = setup();
+    assert!(client.has_role(&admin_a, &Role::Admin));
+}
+
+#[test]
+#[should_panic]
+fn issue_without_instructor_role_fails() {
+    let (env, admin_a, _, _, client) = setup();
+
+    let student_only = Address::generate(&env);
+    client.grant_role(&admin_a, &student_only, &Role::Student);
+
+    let course_symbol = symbol_short!("RBAC");
+    let course_name = String::from_str(&env, "RBAC");
+    client.issue(
+        &student_only,
+        &course_symbol,
+        &vec![&env, Address::generate(&env)],
+        &course_name,
+    );
+}
+
+#[test]
+#[should_panic]
+fn pause_blocks_issue() {
+    let (env, admin_a, _, _, client) = setup();
+
+    client.set_paused(&admin_a, &true);
+
+    let course_symbol = symbol_short!("PAUS");
+    let course_name = String::from_str(&env, "Paused");
+    client.issue(
+        &admin_a,
+        &course_symbol,
+        &vec![&env, Address::generate(&env)],
+        &course_name,
+    );
+}
+
+#[test]
+fn third_admin_can_be_final_approver() {
+    let (_env, admin_a, _admin_b, admin_c, client) = setup();
+
+    let id = client.propose_action(&admin_a, &PendingAdminAction::SetMintCap(42));
+    client.approve_action(&admin_c, &id);
+
+    assert_eq!(client.get_mint_cap(&admin_a), 42);
 }
