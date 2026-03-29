@@ -116,6 +116,7 @@ pub enum CertError {
     InvalidGovernanceSetup = 13,
     CannotGrantAdminRole = 14,
     CannotRevokeProtectedInstructor = 15,
+    InvalidAmount = 16,
 }
 
 const DEFAULT_MINT_CAP: u32 = 1000;
@@ -495,6 +496,87 @@ impl CertificateContract {
             (
                 env.ledger().sequence() / LEDGERS_PER_PERIOD,
                 student_count as u32,
+            ),
+        );
+
+        issued
+    }
+
+    /// Batch issue certificates for multiple course symbols and students in a single transaction.
+    /// Caller must have **Instructor** role. Respects mint cap and pause.
+    /// Optimized for gas efficiency and Soroban compute limits.
+    pub fn batch_issue(
+        env: Env,
+        instructor: Address,
+        symbols: Vec<Symbol>,
+        students: Vec<Address>,
+        course: String,
+    ) -> Vec<Certificate> {
+        instructor.require_auth();
+        Self::require_not_paused(&env);
+        Self::require_instructor(&env, &instructor);
+
+        // Validate input lengths match
+        if symbols.len() != students.len() {
+            panic_with_error!(&env, CertError::InvalidAmount);
+        }
+
+        let total_certificates = symbols.len();
+        let available = Self::check_and_update_mint_tracking(&env);
+        if (total_certificates as u32) > available {
+            panic_with_error!(&env, CertError::MintCapExceeded);
+        }
+
+        Self::record_mint(&env, total_certificates as u32);
+
+        let issue_date = env.ledger().timestamp();
+        let mut issued: Vec<Certificate> = Vec::new(&env);
+
+        // Optimized loop: minimize storage operations and compute
+        for i in 0..total_certificates {
+            let course_symbol = symbols.get(i).unwrap();
+            let student = students.get(i).unwrap();
+
+            let key = CertKey {
+                course_symbol: course_symbol.clone(),
+                student: student.clone(),
+            };
+
+            let cert = Certificate {
+                course_symbol: course_symbol.clone(),
+                student: student.clone(),
+                course_name: course.clone(),
+                issue_date,
+                revoked: false,
+            };
+
+            // Batch storage operations for efficiency
+            env.storage().instance().set(&key, &cert);
+
+            // Batch event emission (emit one event per certificate for transparency)
+            env.events().publish(
+                (Symbol::new(&env, "batch_cert_issued"), course_symbol.clone()),
+                (student.clone(), course.clone()),
+            );
+
+            issued.push_back(cert);
+        }
+
+        // Emit summary event for the entire batch operation
+        env.events().publish(
+            (Symbol::new(&env, "batch_issue_completed"),),
+            (
+                instructor.clone(),
+                total_certificates as u32,
+                course.clone(),
+            ),
+        );
+
+        env.events().publish(
+            (Symbol::new(&env, "mint_period_update"),),
+            (
+                env.ledger().sequence() / LEDGERS_PER_PERIOD,
+                total_certificates as u32,
             ),
         );
 

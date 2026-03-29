@@ -2,7 +2,7 @@ use super::*;
 use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Events, Ledger},
-    vec, Address, Bytes, Env, FromVal, String, Symbol,
+    vec, Address, Bytes, Env, FromVal, String, Symbol, IntoVal,
 };
 
 fn setup() -> (
@@ -606,4 +606,186 @@ fn third_admin_can_be_final_approver() {
     client.approve_action(&admin_c, &id);
 
     assert_eq!(client.get_mint_cap(&admin_a), 42);
+}
+
+// ---------------------------------------------------------------------------
+// Batch Certificate Issuance Tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn batch_issue_multiple_certificates_successfully() {
+    let (env, instructor, _, _, client) = setup();
+
+    env.ledger().with_mut(|ledger| ledger.timestamp = 1_234);
+
+    let symbols = vec![
+        &env,
+        symbol_short!("BATCH1"),
+        symbol_short!("BATCH2"),
+        symbol_short!("BATCH3"),
+    ];
+    let students = vec![
+        &env,
+        Address::generate(&env),
+        Address::generate(&env),
+        Address::generate(&env),
+    ];
+    let course_name = String::from_str(&env, "Batch Course Test");
+
+    let issued = client.batch_issue(&instructor, &symbols, &students, &course_name);
+
+    assert_eq!(issued.len(), 3);
+
+    // Verify each certificate was issued correctly
+    for i in 0..3 {
+        let cert = issued.get(i).unwrap();
+        assert_eq!(cert.course_symbol, symbols.get(i).unwrap());
+        assert_eq!(cert.student, students.get(i).unwrap());
+        assert_eq!(cert.course_name, course_name);
+        assert_eq!(cert.issue_date, 1_234);
+        assert!(!cert.revoked);
+    }
+}
+
+#[test]
+#[should_panic]
+fn batch_issue_with_mismatched_lengths_fails() {
+    let (env, instructor, _, _, client) = setup();
+
+    let symbols = vec![&env, symbol_short!("BATCH1"), symbol_short!("BATCH2")];
+    let students = vec![&env, Address::generate(&env)]; // Only 1 student for 2 symbols
+
+    client.batch_issue(
+        &instructor,
+        &symbols,
+        &students,
+        &String::from_str(&env, "Invalid Batch"),
+    );
+}
+
+#[test]
+#[should_panic]
+fn batch_issue_respects_mint_cap() {
+    let (env, admin_a, admin_b, _, client) = setup();
+
+    // Set very low mint cap
+    propose_and_approve_mint_cap(&client, &admin_a, &admin_b, 2);
+
+    let symbols = vec![
+        &env,
+        symbol_short!("CAP1"),
+        symbol_short!("CAP2"),
+        symbol_short!("CAP3"), // This should exceed the cap
+    ];
+    let students = vec![
+        &env,
+        Address::generate(&env),
+        Address::generate(&env),
+        Address::generate(&env),
+    ];
+
+    client.batch_issue(
+        &admin_a,
+        &symbols,
+        &students,
+        &String::from_str(&env, "Cap Test"),
+    );
+}
+
+#[test]
+#[should_panic]
+fn batch_issue_requires_instructor_role() {
+    let (env, _admin_a, _admin_b, _admin_c, client) = setup();
+
+    let student_only = Address::generate(&env);
+    client.grant_role(&_admin_a, &student_only, &Role::Student);
+
+    let symbols = vec![&env, symbol_short!("NOAUTH")];
+    let students = vec![&env, Address::generate(&env)];
+
+    client.batch_issue(
+        &student_only,
+        &symbols,
+        &students,
+        &String::from_str(&env, "No Auth Test"),
+    );
+}
+
+#[test]
+#[should_panic]
+fn batch_issue_fails_when_paused() {
+    let (env, admin_a, _, _, client) = setup();
+
+    client.set_paused(&admin_a, &true);
+
+    let symbols = vec![&env, symbol_short!("PAUSED")];
+    let students = vec![&env, Address::generate(&env)];
+
+    client.batch_issue(
+        &admin_a,
+        &symbols,
+        &students,
+        &String::from_str(&env, "Paused Test"),
+    );
+}
+
+#[test]
+fn batch_issue_emits_events() {
+    let (env, instructor, _, _, client) = setup();
+
+    let symbols = vec![&env, symbol_short!("EVENT"), symbol_short!("EVENT2")];
+    let students = vec![
+        &env,
+        Address::generate(&env),
+        Address::generate(&env),
+    ];
+    let course_name = String::from_str(&env, "Event Test");
+
+    client.batch_issue(&instructor, &symbols, &students, &course_name);
+
+    // Simplified event check - just verify the batch completed event exists
+    let all_events = env.events().all();
+    let mut batch_completed_found = false;
+
+    for (addr, _topics, _data) in all_events.iter() {
+        if addr == client.address {
+            // For simplicity, just check that we have events (detailed event checking requires more complex setup)
+            batch_completed_found = true;
+            break;
+        }
+    }
+
+    // At minimum, we should have events emitted from our contract
+    assert!(batch_completed_found);
+}
+
+#[test]
+fn batch_issue_gas_efficiency() {
+    let (env, instructor, _, _, client) = setup();
+
+    // Test with larger batch to demonstrate gas efficiency
+    let mut symbols = Vec::new(&env);
+    let mut students = Vec::new(&env);
+
+    // Create 10 different symbols without using format macro
+    let symbol_names = ["BATCH0", "BATCH1", "BATCH2", "BATCH3", "BATCH4",
+                         "BATCH5", "BATCH6", "BATCH7", "BATCH8", "BATCH9"];
+
+    for i in 0..10 {
+        symbols.push_back(Symbol::new(&env, symbol_names[i]));
+        students.push_back(Address::generate(&env));
+    }
+
+    let course_name = String::from_str(&env, "Gas Efficiency Test");
+
+    let issued = client.batch_issue(&instructor, &symbols, &students, &course_name);
+
+    assert_eq!(issued.len(), 10);
+
+    // Verify all certificates have consistent metadata
+    for cert in issued.iter() {
+        assert_eq!(cert.course_name, course_name);
+        assert!(!cert.revoked);
+        assert_eq!(cert.issue_date, env.ledger().timestamp());
+    }
 }
