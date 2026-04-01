@@ -103,6 +103,204 @@ web3-student-lab/
 └── docs/                 # Documentation and learning materials
 ```
 
+## 🚀 Setup Guide
+
+This repository is a monorepo with three main parts:
+
+- `frontend/` for the Next.js application
+- `backend/` for the Express + Prisma API
+- `contracts/` for Soroban smart contracts written in Rust
+
+You can work on the web app with Node.js alone, but you will need Rust and the Soroban CLI to
+build or test the smart contracts.
+
+### Prerequisites
+
+Install these tools before starting:
+
+- **Node.js**: version 20 LTS or newer
+- **npm**: included with Node.js
+- **Rust**: stable toolchain installed with `rustup`
+- **Soroban CLI**: for building, testing, and deploying contracts
+- **PostgreSQL 15+** or **Docker Compose**: for the backend database
+
+### 1. Install Node.js
+
+Download Node.js from the official website:
+
+- [https://nodejs.org/en/download](https://nodejs.org/en/download)
+
+Verify your installation:
+
+```bash
+node --version
+npm --version
+```
+
+### 2. Install Rust
+
+Install Rust with `rustup`:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+Restart your terminal, then verify:
+
+```bash
+rustc --version
+cargo --version
+```
+
+Add the WebAssembly target required for Soroban contracts:
+
+```bash
+rustup target add wasm32-unknown-unknown
+```
+
+### 3. Install Soroban CLI
+
+Install the Soroban CLI with Cargo:
+
+```bash
+cargo install --locked soroban-cli
+```
+
+Verify the installation:
+
+```bash
+soroban --version
+```
+
+For a beginner-friendly Soroban walkthrough, see [SOROBAN_GUIDE.md](SOROBAN_GUIDE.md).
+
+### 4. Clone the Repository
+
+```bash
+git clone https://github.com/StellarDevHub/Web3-Student-Lab.git
+cd Web3-Student-Lab
+```
+
+### 5. Install Project Dependencies
+
+Install all JavaScript dependencies from the project root:
+
+```bash
+npm run install-all
+```
+
+If you prefer to install packages manually:
+
+```bash
+cd backend && npm install
+cd ../frontend && npm install
+cd ..
+```
+
+### 6. Configure Environment Variables
+
+Create the backend environment file at `backend/.env`:
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/web3-student-lab?schema=public"
+PORT=8080
+NODE_ENV=development
+JWT_SECRET=change-this-in-development
+```
+
+Create the frontend environment file at `frontend/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8080/api
+NEXT_PUBLIC_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+NEXT_PUBLIC_CERTIFICATE_CONTRACT_ID=
+```
+
+### 7. Start the Database
+
+Choose one of the following options.
+
+#### Option A: Use Docker Compose
+
+From the project root:
+
+```bash
+docker compose up -d db
+```
+
+This starts PostgreSQL on `localhost:5432`.
+
+#### Option B: Use a Local PostgreSQL Instance
+
+Create a database named `web3-student-lab`, then make sure your `DATABASE_URL` in
+`backend/.env` matches your local PostgreSQL username and password.
+
+### 8. Prepare the Backend Database
+
+From the `backend/` directory:
+
+```bash
+npx prisma generate
+npx prisma migrate deploy
+```
+
+If you want seed data and the project requires it:
+
+```bash
+npx prisma db seed
+```
+
+### 9. Run the Applications
+
+Run the backend:
+
+```bash
+cd backend
+npm run dev
+```
+
+In a second terminal, run the frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Or run both from the project root:
+
+```bash
+npm run dev-all
+```
+
+You can then access:
+
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8080`
+- Health check: `http://localhost:8080/health`
+
+### 10. Build and Test the Soroban Contracts
+
+From the `contracts/` directory, run:
+
+```bash
+cargo test
+cargo build --target wasm32-unknown-unknown --release
+```
+
+This will validate the Rust contracts and produce a WASM build for deployment.
+
+### Quick Verification Checklist
+
+Use these commands to confirm your setup is working:
+
+```bash
+node --version
+rustc --version
+soroban --version
+cd backend && npm test
+cd ../contracts && cargo test
+```
+
 ## 🐳 Getting Started with Docker
 
 The easiest way to set up the local development environment (backend and database) is using Docker
