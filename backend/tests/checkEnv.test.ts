@@ -34,7 +34,7 @@ describe('Environment Variable Guard', () => {
 
     it('should throw error for missing DATABASE_URL', () => {
       process.env.JWT_SECRET = 'this-is-a-very-long-secret-key-that-is-at-least-32-chars';
-      process.env.NODE_ENV = 'development';
+      process.env.NODE_ENV = 'test';
 
       expect(() => validateEnvironment()).toThrow(EnvironmentValidationError);
       expect(() => validateEnvironment()).toThrow(
@@ -44,7 +44,7 @@ describe('Environment Variable Guard', () => {
 
     it('should throw error for missing JWT_SECRET', () => {
       process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
-      process.env.NODE_ENV = 'development';
+      process.env.NODE_ENV = 'test';
 
       expect(() => validateEnvironment()).toThrow(EnvironmentValidationError);
       expect(() => validateEnvironment()).toThrow(
@@ -55,7 +55,7 @@ describe('Environment Variable Guard', () => {
     it('should throw error for invalid JWT_SECRET (too short)', () => {
       process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
       process.env.JWT_SECRET = 'short';
-      process.env.NODE_ENV = 'development';
+      process.env.NODE_ENV = 'test';
 
       expect(() => validateEnvironment()).toThrow(EnvironmentValidationError);
       expect(() => validateEnvironment()).toThrow(
@@ -66,7 +66,7 @@ describe('Environment Variable Guard', () => {
     it('should throw error for default JWT_SECRET value', () => {
       process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
       process.env.JWT_SECRET = 'your-secret-key-change-in-production';
-      process.env.NODE_ENV = 'development';
+      process.env.NODE_ENV = 'test';
 
       expect(() => validateEnvironment()).toThrow(EnvironmentValidationError);
       expect(() => validateEnvironment()).toThrow(
@@ -77,7 +77,7 @@ describe('Environment Variable Guard', () => {
     it('should throw error for invalid DATABASE_URL format', () => {
       process.env.DATABASE_URL = 'invalid-url-format';
       process.env.JWT_SECRET = 'this-is-a-very-long-secret-key-that-is-at-least-32-chars';
-      process.env.NODE_ENV = 'development';
+      process.env.NODE_ENV = 'test';
 
       expect(() => validateEnvironment()).toThrow(EnvironmentValidationError);
       expect(() => validateEnvironment()).toThrow(

@@ -103,15 +103,32 @@ export const verifyToken = (token: string): TokenVerificationResult => {
         };
       }
 
-      if (error.name === 'JsonWebTokenError') {
+      // Check error message for more specific error types
+      if (error.message.includes('malformed')) {
+        return {
+          valid: false,
+          payload: null,
+          error: 'Invalid token format',
+        };
+      }
+
+      if (error.message.includes('invalid signature')) {
         return {
           valid: false,
           payload: null,
           error: 'Invalid token signature',
         };
       }
+
+      // Generic JWT error
+      return {
+        valid: false,
+        payload: null,
+        error: 'Invalid token signature',
+      };
     }
 
+    // Non-JWT error or other error
     return {
       valid: false,
       payload: null,

@@ -12,7 +12,10 @@ import logger from './utils/logger.js';
 dotenv.config();
 
 // Validate environment variables before starting the application
-validateEnvironment();
+// Skip validation in test environment as tests may override environment variables
+if (process.env.NODE_ENV !== 'test') {
+  validateEnvironment();
+}
 
 export const app = express();
 const port = process.env.PORT || 8080;

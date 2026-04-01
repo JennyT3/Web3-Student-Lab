@@ -10,6 +10,20 @@ jobs:
   backend:
     name: Backend CI
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: web3-student-lab-test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: backend
@@ -22,8 +36,14 @@ jobs:
           cache: "npm"
           cache-dependency-path: backend/package-lock.json
       - run: npm install
+      - name: Setup test database
+        run: |
+          npx prisma migrate deploy
       - run: npm run build
       - run: npm test
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/web3-student-lab-test?schema=public
+          JWT_SECRET: test-secret-key-that-is-long-enough-for-testing-123456789
   frontend:
     name: Frontend CI
     runs-on: ubuntu-latest

@@ -197,15 +197,11 @@ export function validateEnvironment(): void {
   } catch (error) {
     if (error instanceof EnvironmentValidationError) {
       logger.error(`❌ Environment Configuration Error: ${error.message}`);
-      // Only exit if we're not in a test environment
-      if (process.env.NODE_ENV !== 'test') {
-        process.exit(1);
-      } else {
-        // Re-throw the error in test environment
-        throw error;
-      }
+      // Always throw the error - let the caller decide what to do
+      throw error;
     } else {
       logger.error(`❌ Unexpected error during environment validation: ${error}`);
+      // Only exit if we're not in a test environment
       if (process.env.NODE_ENV !== 'test') {
         process.exit(1);
       } else {
