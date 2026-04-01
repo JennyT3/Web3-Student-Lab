@@ -67,12 +67,6 @@ export class MalformedTokenError extends Error {
 export const generateToken = (payload: TokenPayload, options: TokenOptions = {}): string => {
   const jwtSecret = getEnvVar('JWT_SECRET');
 
-  const defaultOptions: SignOptions = {
-    expiresIn: '7d',
-    issuer: 'web3-student-lab',
-    audience: 'web3-student-lab-users',
-  };
-
   const signOptions = {
     expiresIn: '7d',
     issuer: 'web3-student-lab',

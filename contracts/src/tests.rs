@@ -204,7 +204,9 @@ fn update_did_links_existing_and_new_certificates() {
     assert_eq!(linked_did.did, did);
     assert_eq!(linked_did.updated_at, 7_777);
 
-    let updated_cert = client.get_certificate(&symbol_short!("DIDONE"), &student).unwrap();
+    let updated_cert = client
+        .get_certificate(&symbol_short!("DIDONE"), &student)
+        .unwrap();
     assert_eq!(updated_cert.did, Some(did.clone()));
 
     client.issue(
@@ -214,7 +216,9 @@ fn update_did_links_existing_and_new_certificates() {
         &course_name,
     );
 
-    let new_cert = client.get_certificate(&symbol_short!("DIDTWO"), &student).unwrap();
+    let new_cert = client
+        .get_certificate(&symbol_short!("DIDTWO"), &student)
+        .unwrap();
     assert_eq!(new_cert.did, Some(did));
 }
 
@@ -224,7 +228,10 @@ fn rejects_invalid_soroban_did_format() {
     let (env, _, _, _, client) = setup();
     let student = Address::generate(&env);
 
-    client.update_did(&student, &String::from_str(&env, "https://example.com/student-1"));
+    client.update_did(
+        &student,
+        &String::from_str(&env, "https://example.com/student-1"),
+    );
 }
 
 #[test]

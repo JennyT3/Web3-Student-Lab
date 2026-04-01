@@ -969,7 +969,9 @@ impl CertificateContract {
     }
 
     pub fn get_did(env: Env, student: Address) -> Option<StudentDid> {
-        env.storage().persistent().get(&DataKey::StudentDid(student))
+        env.storage()
+            .persistent()
+            .get(&DataKey::StudentDid(student))
     }
 
     pub fn remove_did(env: Env, caller: Address, student: Address) {

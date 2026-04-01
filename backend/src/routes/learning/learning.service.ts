@@ -11,19 +11,36 @@ import {
 // In-memory mock store for demo resilience
 const mockProgressStore: Record<string, Progress> = {};
 
-const toProgress = (progress: any): Progress => ({
-  id: progress.id,
-  studentId: progress.studentId,
-  courseId: progress.courseId,
-  completedLessons: progress.completedLessons || [],
-  currentModuleId: progress.currentModuleId,
-  percentage: progress.percentage || 0,
-  status: (progress.status as ProgressStatus) || 'not_started',
-  lastAccessedAt: progress.lastAccessedAt,
-  completedAt: progress.completedAt,
-  createdAt: progress.createdAt,
-  updatedAt: progress.updatedAt,
-});
+interface PrismaProgress {
+  id: string;
+  studentId: string;
+  courseId: string;
+  completedLessons?: string[];
+  currentModuleId?: string;
+  percentage?: number;
+  status?: string;
+  lastAccessedAt?: Date;
+  completedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const toProgress = (progress: unknown): Progress => {
+  const p = progress as PrismaProgress;
+  return {
+    id: p.id,
+    studentId: p.studentId,
+    courseId: p.courseId ?? '',
+    completedLessons: p.completedLessons || [],
+    currentModuleId: p.currentModuleId ?? null,
+    percentage: p.percentage ?? 0,
+    status: (p.status as ProgressStatus) ?? 'not_started',
+    lastAccessedAt: p.lastAccessedAt ?? null,
+    completedAt: p.completedAt ?? null,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  };
+};
 
 const filterModulesByDifficulty = (modules: Module[], difficulty?: string): Module[] => {
   if (!difficulty) {

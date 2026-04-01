@@ -89,7 +89,7 @@ router.put('/:id', async (req, res) => {
     const { email, firstName, lastName, did } = req.body;
     const normalizedDid = normalizeSorobanDid(did);
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       email,
       firstName,
       lastName,

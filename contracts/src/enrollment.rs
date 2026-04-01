@@ -120,8 +120,7 @@ impl EnrollmentContract {
             .set(&status_key, &EnrollmentState::Active);
 
         // Record enrollment timestamp
-        let timestamp_key =
-            EnrollmentKey::EnrollmentTimestamp(student.clone(), course_id.clone());
+        let timestamp_key = EnrollmentKey::EnrollmentTimestamp(student.clone(), course_id.clone());
         env.storage()
             .persistent()
             .set(&timestamp_key, &env.ledger().timestamp());
@@ -158,22 +157,14 @@ impl EnrollmentContract {
 
         // Update instance storage count for active enrollments (gas-efficient)
         let active_count_key = EnrollmentCountKey::ActiveCount(course_id.clone());
-        let current_count: u32 = env
-            .storage()
-            .instance()
-            .get(&active_count_key)
-            .unwrap_or(0);
+        let current_count: u32 = env.storage().instance().get(&active_count_key).unwrap_or(0);
         env.storage()
             .instance()
             .set(&active_count_key, &(current_count + 1));
 
         // Increment version counter for cache invalidation
         let version_key = EnrollmentCountKey::EnrollmentVersion(course_id.clone());
-        let current_version: u64 = env
-            .storage()
-            .instance()
-            .get(&version_key)
-            .unwrap_or(0);
+        let current_version: u64 = env.storage().instance().get(&version_key).unwrap_or(0);
         env.storage()
             .instance()
             .set(&version_key, &(current_version + 1));
@@ -197,12 +188,7 @@ impl EnrollmentContract {
     /// - NotAuthorized: instructor must authenticate
     /// - NotEnrolled: student is not enrolled in the course
     /// - InvalidStateTransition: student is not in Active state
-    pub fn complete_enrollment(
-        env: Env,
-        student: Address,
-        course_id: Symbol,
-        instructor: Address,
-    ) {
+    pub fn complete_enrollment(env: Env, student: Address, course_id: Symbol, instructor: Address) {
         instructor.require_auth();
 
         let status_key = EnrollmentKey::EnrollmentStatus(student.clone(), course_id.clone());
@@ -212,7 +198,7 @@ impl EnrollmentContract {
             .storage()
             .persistent()
             .get(&status_key)
-            .ok_or_else(|| EnrollmentError::NotEnrolled)
+            .ok_or(EnrollmentError::NotEnrolled)
             .unwrap_or_else(|_| {
                 panic_with_error!(&env, EnrollmentError::NotEnrolled);
             });
@@ -249,13 +235,15 @@ impl EnrollmentContract {
         // Increment version counter
         let version_key = EnrollmentCountKey::EnrollmentVersion(course_id.clone());
         let version: u64 = env.storage().instance().get(&version_key).unwrap_or(0);
-        env.storage()
-            .instance()
-            .set(&version_key, &(version + 1));
+        env.storage().instance().set(&version_key, &(version + 1));
 
         // Publish completion event
         env.events().publish(
-            (Symbol::new(&env, "enrollment_completed"), student, course_id),
+            (
+                Symbol::new(&env, "enrollment_completed"),
+                student,
+                course_id,
+            ),
             (),
         );
     }
@@ -272,12 +260,7 @@ impl EnrollmentContract {
     /// - NotAuthorized: student or instructor must authenticate
     /// - NotEnrolled: student is not enrolled in the course
     /// - InvalidStateTransition: student is already dropped or completed
-    pub fn drop_enrollment(
-        env: Env,
-        student: Address,
-        course_id: Symbol,
-        instructor: Address,
-    ) {
+    pub fn drop_enrollment(env: Env, student: Address, course_id: Symbol, instructor: Address) {
         instructor.require_auth();
 
         let status_key = EnrollmentKey::EnrollmentStatus(student.clone(), course_id.clone());
@@ -287,7 +270,7 @@ impl EnrollmentContract {
             .storage()
             .persistent()
             .get(&status_key)
-            .ok_or_else(|| EnrollmentError::NotEnrolled)
+            .ok_or(EnrollmentError::NotEnrolled)
             .unwrap_or_else(|_| {
                 panic_with_error!(&env, EnrollmentError::NotEnrolled);
             });
@@ -325,9 +308,7 @@ impl EnrollmentContract {
         // Increment version counter
         let version_key = EnrollmentCountKey::EnrollmentVersion(course_id.clone());
         let version: u64 = env.storage().instance().get(&version_key).unwrap_or(0);
-        env.storage()
-            .instance()
-            .set(&version_key, &(version + 1));
+        env.storage().instance().set(&version_key, &(version + 1));
 
         // Publish drop event
         env.events().publish(
@@ -344,7 +325,11 @@ impl EnrollmentContract {
     ///
     /// # Returns
     /// `Option<EnrollmentState>` - None if not enrolled, Some(state) if enrolled
-    pub fn get_enrollment_status(env: Env, student: Address, course_id: Symbol) -> Option<EnrollmentState> {
+    pub fn get_enrollment_status(
+        env: Env,
+        student: Address,
+        course_id: Symbol,
+    ) -> Option<EnrollmentState> {
         let status_key = EnrollmentKey::EnrollmentStatus(student, course_id);
         env.storage().persistent().get(&status_key)
     }
