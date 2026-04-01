@@ -13,12 +13,15 @@ export interface ProjectIdea {
 }
 
 export class GeneratorService {
-  private openai: OpenAI;
+  private openai: OpenAI | null = null;
 
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // Only initialize OpenAI if API key is provided
+    if (process.env.OPENAI_API_KEY) {
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+    }
   }
 
   async generateProjectIdea(
@@ -42,6 +45,10 @@ export class GeneratorService {
       
       Ensure the idea is practical for a 48-hour hackathon but still innovative.
     `;
+
+    if (!this.openai) {
+      throw new Error('OpenAI API key not configured');
+    }
 
     try {
       const response = await this.openai.chat.completions.create({
