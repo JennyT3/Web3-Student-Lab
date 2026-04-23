@@ -1,5 +1,9 @@
 import { Router } from 'express';
 import { normalizeSorobanDid } from '../auth/auth.service.js';
+import { cacheMiddleware } from '../cache/CacheMiddleware.js';
+import { invalidateUserCache } from '../cache/CacheInvalidation.js';
+import { CACHE_KEYS } from '../cache/CacheService.js';
+import { cacheTTL } from '../config/redis.config.js';
 import prisma from '../db/index.js';
 import { linkDidToCertificates } from './certificates.js';
 
@@ -21,7 +25,10 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/students/:id - Get student by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', cacheMiddleware({
+  ttl: cacheTTL.user.profile,
+  keyGenerator: (req) => CACHE_KEYS.user.profile(req.params.id)
+}), async (req, res) => {
   try {
     const { id } = req.params;
     const student = await prisma.student.findUnique({
@@ -71,6 +78,7 @@ router.post('/', async (req, res) => {
       },
     });
 
+    await invalidateUserCache(student.id);
     res.status(201).json(student);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Invalid DID format')) {
@@ -112,6 +120,7 @@ router.put('/:id', async (req, res) => {
       linkDidToCertificates(id, student.did ?? null);
     }
 
+    await invalidateUserCache(id);
     res.json(student);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Invalid DID format')) {
@@ -132,6 +141,7 @@ router.delete('/:id', async (req, res) => {
       where: { id },
     });
 
+    await invalidateUserCache(id);
     res.status(204).send();
   } catch {
     res.status(500).json({ error: 'Failed to delete student' });

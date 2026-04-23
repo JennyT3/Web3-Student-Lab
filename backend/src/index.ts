@@ -2,6 +2,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { Request, Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
+import redisClient from './cache/RedisClient.js';
+import cacheMetrics from './cache/CacheMetrics.js';
 import prisma from './db/index.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import routes from './routes/index.js';
@@ -15,6 +17,13 @@ dotenv.config();
 // Skip validation in test environment as tests may override environment variables
 if (process.env.NODE_ENV !== 'test') {
   validateEnvironment();
+}
+
+// Initialize Redis connection
+if (process.env.NODE_ENV !== 'test') {
+  redisClient.connect().catch((err) => {
+    logger.warn('Redis connection failed, continuing without cache:', err);
+  });
 }
 
 export const app = express();
@@ -45,8 +54,12 @@ app.get('/health', (_req: Request, res: Response) => {
     message: 'Web3 Student Lab Backend is running',
     uptime: process.uptime(),
     version: '1.0.0',
+    redis: redisClient.isHealthy() ? 'connected' : 'disconnected',
   });
 });
+
+// Cache metrics endpoint
+app.use('/api/v1/cache', cacheMetrics);
 
 // API Routes
 app.use('/api/v1', routes);
@@ -62,6 +75,7 @@ if (process.env.NODE_ENV !== 'test') {
   // Graceful shutdown
   process.on('SIGINT', async () => {
     logger.info('Shutting down gracefully...');
+    await redisClient.disconnect();
     await prisma.$disconnect();
     server?.close(() => {
       logger.info('Server closed');
@@ -71,6 +85,7 @@ if (process.env.NODE_ENV !== 'test') {
 
   process.on('SIGTERM', async () => {
     logger.info('Shutting down gracefully...');
+    await redisClient.disconnect();
     await prisma.$disconnect();
     server?.close(() => {
       logger.info('Server closed');

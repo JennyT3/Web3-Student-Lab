@@ -1,4 +1,7 @@
 import prisma from '../../db/index.js';
+import cacheService, { CACHE_KEYS } from '../../cache/CacheService.js';
+import { invalidateUserProgressCache } from '../../cache/CacheInvalidation.js';
+import { cacheTTL } from '../../config/redis.config.js';
 import { COURSES, getCurriculumForCourse } from './curriculum.data.js';
 import {
   CurriculumCourse,
@@ -92,12 +95,28 @@ const buildPercentage = (
  * Resilient: Falls back to hardcoded COURSES if database fails.
  */
 export const listCourses = async (difficulty?: string): Promise<CurriculumCourse[]> => {
+  const cacheKey = CACHE_KEYS.courses.list();
+  const cached = await cacheService.get<CurriculumCourse[]>(cacheKey);
+  if (cached) return cached;
+
   try {
     const courses = await prisma.course.findMany({
       orderBy: { createdAt: 'asc' },
     });
 
-    return courses.map((course) => ({
+    const result = courses.map((course) => ({
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      instructor: course.instructor,
+      credits: course.credits,
+      createdAt: course.createdAt,
+      updatedAt: course.updatedAt,
+      modules: filterModulesByDifficulty(getCurriculumForCourse(course.id), difficulty),
+    }));
+
+    await cacheService.set(cacheKey, result, cacheTTL.courses.list);
+    return result;
       id: course.id,
       title: course.title,
       description: course.description,
@@ -131,6 +150,10 @@ export const getCourseCurriculum = async (
   courseId: string,
   difficulty?: string
 ): Promise<CurriculumCourse | null> => {
+  const cacheKey = CACHE_KEYS.courses.curriculum(courseId);
+  const cached = await cacheService.get<CurriculumCourse>(cacheKey);
+  if (cached) return cached;
+
   try {
     const course = await prisma.course.findUnique({
       where: { id: courseId },
@@ -171,7 +194,7 @@ export const getCourseCurriculum = async (
     if (!mockCourse) return null;
 
     const now = new Date();
-    return {
+    const result = {
       ...mockCourse,
       description: mockCourse.description || null,
       instructor: 'Web3 Student Lab',
@@ -180,6 +203,9 @@ export const getCourseCurriculum = async (
       updatedAt: now,
       modules: filterModulesByDifficulty(getCurriculumForCourse(courseId), difficulty),
     };
+
+    await cacheService.set(cacheKey, result, cacheTTL.courses.curriculum);
+    return result;
   }
 };
 
@@ -192,6 +218,10 @@ export const getStudentProgress = async (
   courseId: string
 ): Promise<Progress> => {
   const key = `${studentId}:${courseId}`;
+  const cacheKey = `${CACHE_KEYS.user.progress(studentId)}:${courseId}`;
+  
+  const cached = await cacheService.get<Progress>(cacheKey);
+  if (cached) return cached;
 
   try {
     const progress = await prisma.learningProgress.findUnique({
@@ -206,6 +236,7 @@ export const getStudentProgress = async (
     if (progress) {
       const p = toProgress(progress);
       mockProgressStore[key] = p; // Sync cache
+      await cacheService.set(cacheKey, p, cacheTTL.user.progress);
       return p;
     }
   } catch (_error) {
@@ -234,6 +265,7 @@ export const getStudentProgress = async (
   };
 
   mockProgressStore[key] = initialProgress;
+  await cacheService.set(cacheKey, initialProgress, cacheTTL.user.progress);
   return initialProgress;
 };
 
@@ -318,9 +350,11 @@ export const updateStudentProgress = async (
       },
     });
 
+    await invalidateUserProgressCache(studentId);
     return toProgress(progress);
   } catch (_error) {
     console.warn('Database error in updateStudentProgress, updated in mock store only');
+    await invalidateUserProgressCache(studentId);
     return updatedProgress;
   }
 };

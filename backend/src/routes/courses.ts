@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import { cacheMiddleware } from '../cache/CacheMiddleware.js';
+import { invalidateAllCourses, invalidateCourseCache } from '../cache/CacheInvalidation.js';
+import { cacheTTL } from '../config/redis.config.js';
 
 const router = Router();
 
@@ -37,7 +40,7 @@ let courses = [
 ];
 
 // GET /api/courses - Get all courses
-router.get('/', async (req, res) => {
+router.get('/', cacheMiddleware({ ttl: cacheTTL.courses.list }), async (req, res) => {
   try {
     res.json(courses);
   } catch {
@@ -46,7 +49,10 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/courses/:id - Get course by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', cacheMiddleware({ 
+  ttl: cacheTTL.courses.detail,
+  keyGenerator: (req) => `course:${req.params.id}`
+}), async (req, res) => {
   try {
     const { id } = req.params;
     const course = courses.find((c) => c.id === id);
@@ -81,6 +87,7 @@ router.post('/', async (req, res) => {
     };
 
     courses.push(newCourse);
+    await invalidateAllCourses();
     res.status(201).json(newCourse);
   } catch {
     res.status(500).json({ error: 'Failed to create course' });
@@ -108,6 +115,7 @@ router.put('/:id', async (req, res) => {
         updatedAt: new Date().toISOString(),
       });
     }
+    await invalidateCourseCache(id);
     res.json(targetCourse);
   } catch {
     res.status(500).json({ error: 'Failed to update course' });
@@ -119,6 +127,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     courses = courses.filter((c) => c.id !== id);
+    await invalidateCourseCache(id);
     res.status(204).send();
   } catch {
     res.status(500).json({ error: 'Failed to delete course' });
