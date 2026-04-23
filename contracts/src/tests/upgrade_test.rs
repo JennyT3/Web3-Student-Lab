@@ -12,7 +12,7 @@ mod upgrade_tests {
     use crate::{CertificateContract, CertificateContractClient};
     use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String};
 
-    fn setup_test() -> (Env, CertificateContractClient, Address, Address, Address) {
+    fn setup_test() -> (Env, CertificateContractClient<'static>, Address, Address, Address) {
         let env = Env::default();
         env.mock_all_auths();
 
@@ -39,7 +39,7 @@ mod upgrade_tests {
         // Propose an upgrade
         let new_wasm_hash = BytesN::from_array(&env, &[1u8; 32]);
         let changelog = String::from_str(&env, "Initial upgrade to v1");
-        
+
         client.propose_upgrade_with_timelock(&admin_a, &new_wasm_hash, &changelog);
 
         // Check pending upgrade exists
@@ -53,7 +53,7 @@ mod upgrade_tests {
 
         let new_wasm_hash = BytesN::from_array(&env, &[1u8; 32]);
         let changelog = String::from_str(&env, "Test upgrade");
-        
+
         // Propose upgrade
         client.propose_upgrade_with_timelock(&admin_a, &new_wasm_hash, &changelog);
 
@@ -64,7 +64,7 @@ mod upgrade_tests {
         // Note: In a real test, this would panic. For demonstration, we check the pending upgrade
         let pending = client.get_pending_upgrade();
         assert!(pending.is_some());
-        
+
         // In production, you would advance the ledger timestamp by 24 hours
         // env.ledger().set_timestamp(env.ledger().timestamp() + 86400);
         // Then execute_pending_upgrade would succeed
@@ -76,7 +76,7 @@ mod upgrade_tests {
 
         let new_wasm_hash = BytesN::from_array(&env, &[1u8; 32]);
         let changelog = String::from_str(&env, "Multi-sig test");
-        
+
         // Propose upgrade (admin_a approves automatically)
         client.propose_upgrade_with_timelock(&admin_a, &new_wasm_hash, &changelog);
 
@@ -102,7 +102,7 @@ mod upgrade_tests {
 
         let new_wasm_hash = BytesN::from_array(&env, &[1u8; 32]);
         let changelog = String::from_str(&env, "Test cancellation");
-        
+
         // Propose upgrade
         client.propose_upgrade_with_timelock(&admin_a, &new_wasm_hash, &changelog);
 
@@ -142,7 +142,7 @@ mod upgrade_tests {
         // For this test, we demonstrate the API call structure
         // let target_version = 1u32;
         // client.emergency_rollback(&admin_a, &admin_b, &target_version);
-        
+
         // Verify rollback was successful
         // assert_eq!(client.get_current_version(), target_version);
     }
@@ -154,7 +154,7 @@ mod upgrade_tests {
 
         let new_wasm_hash = BytesN::from_array(&env, &[1u8; 32]);
         let changelog = String::from_str(&env, "Duplicate test");
-        
+
         // Propose upgrade (admin_a approves automatically)
         client.propose_upgrade_with_timelock(&admin_a, &new_wasm_hash, &changelog);
 
@@ -168,7 +168,7 @@ mod upgrade_tests {
 
         // Query a specific version
         let version = client.get_version(&1u32);
-        
+
         // Initially, no versions exist
         assert!(version.is_none());
     }
@@ -179,7 +179,7 @@ mod upgrade_tests {
 
         let new_wasm_hash = BytesN::from_array(&env, &[1u8; 32]);
         let changelog = String::from_str(&env, "Event test");
-        
+
         // Propose upgrade
         client.propose_upgrade_with_timelock(&admin_a, &new_wasm_hash, &changelog);
 

@@ -14,7 +14,7 @@ mod admin_tests {
     };
     use soroban_sdk::{testutils::Address as _, Address, Env};
 
-    fn setup_test() -> (Env, CertificateContractClient, Address, Address, Address) {
+    fn setup_test() -> (Env, CertificateContractClient<'static>, Address, Address, Address) {
         let env = Env::default();
         env.mock_all_auths();
 
@@ -35,14 +35,14 @@ mod admin_tests {
         let (env, client, admin_a, _, _) = setup_test();
 
         let new_admin = Address::generate(&env);
-        
+
         // Add new admin with Admin role
         client.add_admin_with_role(&admin_a, &new_admin, &AdminRole::Admin);
 
         // Verify admin was added
         let policy = client.get_admin_policy(&new_admin);
         assert!(policy.is_some());
-        
+
         let policy = policy.unwrap();
         assert_eq!(policy.role, AdminRole::Admin);
         assert_eq!(policy.address, new_admin);
@@ -53,7 +53,7 @@ mod admin_tests {
         let (env, client, admin_a, _, _) = setup_test();
 
         let new_admin = Address::generate(&env);
-        
+
         // Add admin
         client.add_admin_with_role(&admin_a, &new_admin, &AdminRole::Operator);
 
@@ -72,7 +72,7 @@ mod admin_tests {
         let (env, client, admin_a, _, _) = setup_test();
 
         let new_owner = Address::generate(&env);
-        
+
         // Add new owner
         client.add_admin_with_role(&admin_a, &new_owner, &AdminRole::Owner);
 
@@ -94,7 +94,7 @@ mod admin_tests {
         let (env, client, admin_a, _, _) = setup_test();
 
         let new_admin = Address::generate(&env);
-        
+
         // Add new admin
         client.add_admin_with_role(&admin_a, &new_admin, &AdminRole::Admin);
 
@@ -103,7 +103,7 @@ mod admin_tests {
         assert!(client.check_permission(&new_admin, &Permission::Revoke));
         assert!(client.check_permission(&new_admin, &Permission::UpdateMetadata));
         assert!(client.check_permission(&new_admin, &Permission::Pause));
-        
+
         // Admin should NOT have owner-only permissions
         assert!(!client.check_permission(&new_admin, &Permission::Upgrade));
         assert!(!client.check_permission(&new_admin, &Permission::TransferOwnership));
@@ -115,7 +115,7 @@ mod admin_tests {
         let (env, client, admin_a, _, _) = setup_test();
 
         let operator = Address::generate(&env);
-        
+
         // Add operator
         client.add_admin_with_role(&admin_a, &operator, &AdminRole::Operator);
 
@@ -131,7 +131,7 @@ mod admin_tests {
         let (env, client, admin_a, _, _) = setup_test();
 
         let new_owner = Address::generate(&env);
-        
+
         // Transfer ownership
         client.transfer_ownership(&admin_a, &new_owner);
 
@@ -144,13 +144,13 @@ mod admin_tests {
         let (env, client, admin_a, _, _) = setup_test();
 
         let new_admin = Address::generate(&env);
-        
+
         // Add admin
         client.add_admin_with_role(&admin_a, &new_admin, &AdminRole::Admin);
 
         // Get policy details
         let policy = client.get_admin_policy(&new_admin).unwrap();
-        
+
         // Verify policy fields
         assert_eq!(policy.role, AdminRole::Admin);
         assert_eq!(policy.address, new_admin);
@@ -165,7 +165,7 @@ mod admin_tests {
         let admin_1 = Address::generate(&env);
         let admin_2 = Address::generate(&env);
         let admin_3 = Address::generate(&env);
-        
+
         // Add multiple admins with different roles
         client.add_admin_with_role(&admin_a, &admin_1, &AdminRole::Owner);
         client.add_admin_with_role(&admin_a, &admin_2, &AdminRole::Admin);
@@ -182,7 +182,7 @@ mod admin_tests {
         let (env, client, _, _, _) = setup_test();
 
         let random_address = Address::generate(&env);
-        
+
         // Check permission for non-existent admin
         assert!(!client.check_permission(&random_address, &Permission::Mint));
         assert!(!client.check_permission(&random_address, &Permission::Upgrade));
@@ -193,7 +193,7 @@ mod admin_tests {
         let (env, client, _, _, _) = setup_test();
 
         let random_address = Address::generate(&env);
-        
+
         // Get policy for non-existent admin
         let policy = client.get_admin_policy(&random_address);
         assert!(policy.is_none());

@@ -87,29 +87,24 @@ pub fn has_role(env: &Env, address: &Address, role: AdminRole) -> bool {
 }
 
 /// Add a new admin with specific role and permissions
-pub fn add_admin(
-    env: &Env,
-    address: Address,
-    role: AdminRole,
-    permissions: Vec<Permission>,
-) {
+pub fn add_admin(env: &Env, address: Address, role: AdminRole, permissions: Vec<Permission>) {
     let mut policies = get_admin_policies(env);
-    
+
     // Check if admin already exists
     let exists = policies.iter().any(|p| p.address == address);
     if exists {
         return; // Admin already exists, could panic or update instead
     }
-    
+
     let policy = AdminPolicy {
         role,
         address: address.clone(),
         permissions,
         added_at: env.ledger().timestamp(),
     };
-    
+
     policies.push_back(policy);
-    
+
     env.storage()
         .instance()
         .set(&AdminDataKey::AdminPolicies, &policies);
@@ -118,7 +113,7 @@ pub fn add_admin(
 /// Remove an admin
 pub fn remove_admin(env: &Env, address: &Address) {
     let policies = get_admin_policies(env);
-    
+
     // Find and remove the admin
     let mut new_policies = Vec::new(env);
     for policy in policies.iter() {
@@ -126,28 +121,24 @@ pub fn remove_admin(env: &Env, address: &Address) {
             new_policies.push_back(policy);
         }
     }
-    
+
     env.storage()
         .instance()
         .set(&AdminDataKey::AdminPolicies, &new_policies);
 }
 
 /// Update admin permissions
-pub fn update_admin_permissions(
-    env: &Env,
-    address: &Address,
-    new_permissions: Vec<Permission>,
-) {
+pub fn update_admin_permissions(env: &Env, address: &Address, new_permissions: Vec<Permission>) {
     let policies = get_admin_policies(env);
     let mut updated_policies = Vec::new(env);
-    
+
     for mut policy in policies.iter() {
         if policy.address == *address {
             policy.permissions = new_permissions.clone();
         }
         updated_policies.push_back(policy);
     }
-    
+
     env.storage()
         .instance()
         .set(&AdminDataKey::AdminPolicies, &updated_policies);
@@ -155,9 +146,7 @@ pub fn update_admin_permissions(
 
 /// Get the contract owner
 pub fn get_owner(env: &Env) -> Option<Address> {
-    env.storage()
-        .instance()
-        .get(&AdminDataKey::OwnerAddress)
+    env.storage().instance().get(&AdminDataKey::OwnerAddress)
 }
 
 /// Set the contract owner
@@ -175,7 +164,7 @@ pub fn transfer_ownership(env: &Env, new_owner: Address) {
 /// Get default permissions for each role
 pub fn get_default_permissions(env: &Env, role: AdminRole) -> Vec<Permission> {
     let mut permissions = Vec::new(env);
-    
+
     match role {
         AdminRole::Owner => {
             permissions.push_back(Permission::Upgrade);
@@ -199,7 +188,7 @@ pub fn get_default_permissions(env: &Env, role: AdminRole) -> Vec<Permission> {
             // Operators have read-only access, no write permissions
         }
     }
-    
+
     permissions
 }
 
@@ -212,13 +201,13 @@ pub fn validate_multisig(
     required_permission: Permission,
 ) -> bool {
     let mut valid_signatures = 0u32;
-    
+
     for signer in signers.iter() {
         if has_permission(env, &signer, required_permission) {
             valid_signatures += 1;
         }
     }
-    
+
     valid_signatures >= required_signatures
 }
 
@@ -226,12 +215,12 @@ pub fn validate_multisig(
 pub fn count_admins_with_permission(env: &Env, permission: Permission) -> u32 {
     let policies = get_admin_policies(env);
     let mut count = 0u32;
-    
+
     for policy in policies.iter() {
         if policy.permissions.iter().any(|p| p == permission) {
             count += 1;
         }
     }
-    
+
     count
 }

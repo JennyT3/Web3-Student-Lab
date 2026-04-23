@@ -1064,5 +1064,5 @@ fn get_event_version_returns_one() {
 // Upgrade and Admin Tests
 // ---------------------------------------------------------------------------
 
-mod upgrade_test;
 mod admin_test;
+mod upgrade_test;

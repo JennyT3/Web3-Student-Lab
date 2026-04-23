@@ -78,9 +78,9 @@ pub fn add_version_to_history(
 ) {
     let current_version = get_current_version(env);
     let new_version = current_version + 1;
-    
+
     let mut history = get_version_history(env);
-    
+
     let version_entry = ContractVersion {
         version: new_version,
         wasm_hash,
@@ -88,14 +88,14 @@ pub fn add_version_to_history(
         upgraded_by,
         changelog,
     };
-    
+
     history.push_back(version_entry);
-    
+
     // Keep only the last MAX_VERSION_HISTORY versions
     while history.len() > MAX_VERSION_HISTORY {
         history.remove(0);
     }
-    
+
     env.storage()
         .instance()
         .set(&UpgradeDataKey::VersionHistory, &history);
@@ -114,7 +114,7 @@ pub fn propose_upgrade(
 ) {
     let proposed_at = env.ledger().timestamp();
     let executable_after = proposed_at + UPGRADE_TIMELOCK_SECONDS;
-    
+
     let pending = PendingUpgrade {
         new_wasm_hash,
         proposed_at,
@@ -123,7 +123,7 @@ pub fn propose_upgrade(
         changelog,
         executable_after,
     };
-    
+
     env.storage()
         .instance()
         .set(&UpgradeDataKey::PendingUpgrade, &pending);
@@ -152,33 +152,33 @@ pub fn is_timelock_expired(env: &Env, pending: &PendingUpgrade) -> bool {
 pub fn execute_upgrade(env: &Env, pending: &PendingUpgrade) {
     env.deployer()
         .update_current_contract_wasm(pending.new_wasm_hash.clone());
-    
+
     add_version_to_history(
         env,
         pending.new_wasm_hash.clone(),
         pending.proposed_by.clone(),
         pending.changelog.clone(),
     );
-    
+
     clear_pending_upgrade(env);
 }
 
 /// Rollback to a previous version (emergency use only)
 pub fn rollback_to_version(env: &Env, version: u32) -> Option<BytesN<32>> {
     let history = get_version_history(env);
-    
+
     for v in history.iter() {
         if v.version == version {
             env.deployer()
                 .update_current_contract_wasm(v.wasm_hash.clone());
-            
+
             env.storage()
                 .instance()
                 .set(&UpgradeDataKey::CurrentVersion, &version);
-            
+
             return Some(v.wasm_hash);
         }
     }
-    
+
     None
 }
