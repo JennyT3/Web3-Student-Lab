@@ -162,6 +162,8 @@ const CERT_TTL_LEDGERS: u32 = 6_307_200;
 /// Maximum batch size for minting operations (gas optimization limit).
 const MAX_BATCH_SIZE: u32 = 100;
 /// Maximum gas budget per batch operation (10M gas).
+/// This constant is kept for documentation purposes.
+#[allow(dead_code)]
 const MAX_GAS_PER_BATCH: u64 = 10_000_000;
 
 /// Current event schema version. Bump this when any event topic or payload changes.
@@ -882,18 +884,18 @@ impl CertificateContract {
         }
 
         let total_certificates = symbols.len();
-        
+
         // Validate batch size
         if total_certificates == 0 {
             Self::release_lock(&env);
             panic_with_error!(&env, CertError::EmptyBatch);
         }
-        
+
         if total_certificates > MAX_BATCH_SIZE {
             Self::release_lock(&env);
             panic_with_error!(&env, CertError::BatchTooLarge);
         }
-        
+
         let available = Self::check_and_update_mint_tracking(&env);
         if total_certificates > available {
             Self::release_lock(&env);
@@ -955,17 +957,17 @@ impl CertificateContract {
 
     /// Enhanced batch minting with individual recipient metadata.
     /// Supports up to 100 certificates per transaction with optimized gas usage.
-    /// 
+    ///
     /// # Arguments
     /// * `recipients` - Vector of recipient data including address, course_symbol, and optional grade
     /// * `course_name` - Course name shared across all certificates
-    /// 
+    ///
     /// # Gas Optimization
     /// - Shared course name and timestamp across batch
     /// - Optimized storage writes
     /// - Batched event emission
     /// - Pre-computed values to minimize redundant operations
-    /// 
+    ///
     /// # Returns
     /// Vector of issued certificates or panics on error
     pub fn mint_batch_certificates(
