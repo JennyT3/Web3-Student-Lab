@@ -11,6 +11,7 @@ import {
   Enrollment,
 } from "@/lib/api";
 import Link from "next/link";
+import AuditLogList from "@/components/dashboard/AuditLogList";
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
@@ -281,7 +282,7 @@ export default function DashboardPage() {
 
         {/* My Certificates */}
         {certificates.length > 0 && (
-          <div>
+          <div className="mb-16">
             <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
               <h3 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3">
                 <span className="w-4 h-4 bg-red-600 rounded-sm inline-block"></span>{" "}
@@ -336,6 +337,22 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Audit Logs Section */}
+        <div className="mt-20">
+          <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
+            <h3 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3">
+              <span className="w-4 h-4 bg-red-600 rounded-sm inline-block"></span>{" "}
+              Audit Trails <span className="text-gray-600">[Admin Only]</span>
+            </h3>
+            <span className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-black uppercase tracking-widest rounded-full">
+              Live Monitoring
+            </span>
+          </div>
+          <div className="bg-zinc-950/50 backdrop-blur-sm border border-white/5 rounded-2xl p-8">
+            <AuditLogList />
+          </div>
+        </div>
       </main>
     </div>
   );

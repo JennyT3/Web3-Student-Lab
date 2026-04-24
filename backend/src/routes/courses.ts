@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { auditAction } from '../middleware/audit.js';
 
 const router = Router();
 
@@ -62,7 +63,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/courses - Create a new course
-router.post('/', async (req, res) => {
+router.post('/', auditAction('CREATE_COURSE', 'Course'), async (req, res) => {
   try {
     const { title, description, instructor, credits } = req.body;
 
@@ -88,7 +89,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/courses/:id - Update a course
-router.put('/:id', async (req, res) => {
+router.put('/:id', auditAction('UPDATE_COURSE', 'Course'), async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, instructor, credits } = req.body;
@@ -115,7 +116,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/courses/:id - Delete a course
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auditAction('DELETE_COURSE', 'Course'), async (req, res) => {
   try {
     const { id } = req.params;
     courses = courses.filter((c) => c.id !== id);

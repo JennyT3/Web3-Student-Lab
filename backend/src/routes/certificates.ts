@@ -1,5 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { normalizeSorobanDid } from '../auth/auth.service.js';
+import { auditAction } from '../middleware/audit.js';
 
 const router = Router();
 
@@ -59,7 +60,7 @@ router.get('/student/:studentId', async (req: Request, res: Response) => {
 });
 
 // POST /api/certificates - Issue a new certificate
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', auditAction('ISSUE_CERTIFICATE', 'Certificate'), async (req: Request, res: Response) => {
   try {
     const { studentId, courseId, certificateHash, did } = req.body;
 
@@ -119,7 +120,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT /api/certificates/:id - Update certificate status
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', auditAction('UPDATE_CERTIFICATE', 'Certificate'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { status, certificateHash, did } = req.body;
@@ -175,7 +176,7 @@ router.get('/:id/verify', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/certificates/:id - Revoke a certificate
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', auditAction('REVOKE_CERTIFICATE', 'Certificate'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     certificates = certificates.filter((c) => c.id !== id);
