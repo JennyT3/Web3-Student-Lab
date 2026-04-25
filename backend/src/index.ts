@@ -27,6 +27,8 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
+import { decryptionMiddleware } from './middleware/encryptionMiddleware.js';
+
 export const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -40,6 +42,7 @@ const port = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(express.json());
+app.use(decryptionMiddleware);
 
 // Initialize WebSocket Gateway
 initWebSocketGateway(io);

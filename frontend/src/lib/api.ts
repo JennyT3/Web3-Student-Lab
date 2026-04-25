@@ -69,7 +69,7 @@ export interface Feedback {
 // Authentication APIs
 export const authAPI = {
   register: async (data: RegisterRequest): Promise<AuthResponse> => {
-    const response = await apiClient.post("/auth/register", data);
+    const response = await apiClient.post("/auth/register", data, { encrypt: true } as any);
     return response.data;
   },
 
@@ -226,6 +226,14 @@ export const dashboardAPI = {
 
   getStudentDashboard: async (studentId: string): Promise<StudentDashboard> => {
     const response = await apiClient.get(`/dashboard/student/${studentId}`);
+    return response.data;
+  },
+};
+
+// Analytics APIs
+export const analyticsAPI = {
+  getGlobalStats: async (): Promise<any> => {
+    const response = await apiClient.get("/analytics/global-stats");
     return response.data;
   },
 };

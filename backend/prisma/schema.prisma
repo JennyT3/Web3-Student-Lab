@@ -149,3 +149,16 @@ model AuditLog {
 
   @@map("audit_logs")
 }
+
+model AnalyticsData {
+  id                String   @id @default(cuid())
+  metricType        String   // "USER_STAT", "COURSE_STAT", "ENROLLMENT_STAT"
+  anonymizedUserHash String?  // SHA-256 of email
+  region            String?  // Aggregated location
+  value             Float?
+  category          String?  // course category, level, etc.
+  timestamp         DateTime @default(now())
+  metadata          Json?
+
+  @@map("analytics_data")
+}

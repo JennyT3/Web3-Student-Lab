@@ -11,12 +11,26 @@ const apiClient = axios.create({
   },
 });
 
+import { encryptPayload } from "./encryption";
+
 // Add token to requests if available
-apiClient.interceptors.request.use((config) => {
+apiClient.interceptors.request.use(async (config) => {
   const token = localStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Handle Payload Encryption for sensitive data
+  if (config.data && (config as any).encrypt) {
+    try {
+      const encrypted = await encryptPayload(config.data);
+      config.data = encrypted;
+      config.headers["X-Payload-Encryption"] = "true";
+    } catch (error) {
+      console.error("Encryption failed, sending as fallback (or block if strictly required):", error);
+    }
+  }
+
   return config;
 });
 

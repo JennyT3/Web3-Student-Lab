@@ -1,8 +1,8 @@
 "use client";
 
+import { analyticsAPI } from "@/lib/api";
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { dashboardAPI } from "@/lib/api";
+import { useEffect, useState } from "react";
 
 export default function Home() {
   const [stats, setStats] = useState({
@@ -16,12 +16,19 @@ export default function Home() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const data = await dashboardAPI.getStats();
+        // Point strictly to the sanitized analytics endpoint
+        const { data } = await analyticsAPI.getGlobalStats();
+
+        const summary = data.summary || [];
+        const studentStat = summary.find((s: any) => s.metricType === 'USER_STAT');
+        const enrollmentStat = summary.find((s: any) => s.metricType === 'ENROLLMENT_STAT');
+        const courseStat = summary.find((s: any) => s.metricType === 'COURSE_STAT');
+
         setStats({
-          coursesCount: data.coursesCount || 0,
-          studentsCount: data.studentsCount || 0,
-          certificatesCount: data.certificatesCount || 0,
-          verificationRate: data.verificationRate || "100%",
+          coursesCount: courseStat?._count?._all || 0,
+          studentsCount: studentStat?._count?._all || 0,
+          certificatesCount: enrollmentStat?._count?._all || 0,
+          verificationRate: "99% Secured",
         });
       } catch (error) {
         console.error("Failed to fetch stats:", error);
