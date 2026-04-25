@@ -9,13 +9,7 @@ import { requestLogger } from './middleware/requestLogger.js';
 import routes from './routes/index.js';
 import { validateEnvironment } from './utils/checkEnv.js';
 import logger from './utils/logger.js';
-import { pubClient, redisConnection, subClient } from './utils/redis.js';
-
-if (process.env.NODE_ENV !== 'test') {
-  import('./jobs/export.worker.js'); // Initialize BullMQ worker
-}
-
-import { initWebSocketGateway } from './websocket/gateway.js';
+import { initializeWebSocket } from './websocket/WebSocketServer.js';
 
 // Load environment variables
 dotenv.config();
@@ -90,6 +84,8 @@ if (process.env.NODE_ENV !== 'test') {
   server = httpServer.listen(port, () => {
     logger.info(`Server is running on port ${port}`);
   });
+
+  initializeWebSocket(server);
 
   // Graceful shutdown
   process.on('SIGINT', async () => {
