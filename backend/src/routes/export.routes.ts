@@ -1,20 +1,17 @@
-import { Router } from 'express';
-import { exportQueue } from '../jobs/export.queue.js';
 import { Job } from 'bullmq';
-import path from 'path';
+import { Router } from 'express';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
+import path from 'path';
+import { exportQueue } from '../jobs/export.queue.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const EXPORTS_DIR = path.join(__dirname, '../../exports');
+const EXPORTS_DIR = path.join(process.cwd(), 'exports');
 
 const router = Router();
 
 // POST /api/v1/export - Trigger an export
 router.post('/', async (req, res) => {
   const { type, format } = req.body;
-  const userId = (req as any).user?.id || 'anonymous';
+  const userId = (req as unknown as { user?: { id: string } }).user?.id || 'anonymous';
 
   if (!['students', 'audit', 'courses'].includes(type)) {
     return res.status(400).json({ error: 'Invalid export type' });

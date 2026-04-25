@@ -2,16 +2,12 @@ import { Job, Worker } from 'bullmq';
 import fs from 'fs/promises';
 import { Parser } from 'json2csv';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import prisma from '../db/index.js';
 import logger from '../utils/logger.js';
 import { redisConnection } from '../utils/redis.js';
 import { broadcastEvent } from '../websocket/gateway.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const EXPORTS_DIR = path.join(__dirname, '../../exports');
+const EXPORTS_DIR = path.join(process.cwd(), 'exports');
 
 // Ensure exports directory exists
 try {
@@ -34,7 +30,7 @@ const worker = new Worker(
     const { type, format, userId } = job.data;
     logger.info(`Starting export job ${job.id} for user ${userId}, type: ${type}, format: ${format}`);
 
-    let data: any[] = [];
+    let data: unknown[] = [];
 
     // Simulate heavy querying
     if (type === 'students') {
@@ -88,7 +84,7 @@ const worker = new Worker(
 
 // Cleanup job: Delete files older than 24 hours every hour
 const CLEANUP_QUEUE_NAME = 'cleanup-queue';
-const cleanupWorker = new Worker(
+const _cleanupWorker = new Worker(
   CLEANUP_QUEUE_NAME,
   async () => {
     logger.info('Running export files cleanup...');

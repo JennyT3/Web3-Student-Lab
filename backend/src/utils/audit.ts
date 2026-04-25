@@ -8,7 +8,7 @@ export interface AuditLogData {
   action: string;
   entity?: string | null;
   entityId?: string | null;
-  details?: any;
+  details?: unknown;
   ipAddress?: string | null;
   userAgent?: string | null;
 }
@@ -25,7 +25,8 @@ export async function logAudit(data: AuditLogData): Promise<void> {
         action: data.action,
         entity: data.entity ?? null,
         entityId: data.entityId ?? null,
-        details: data.details ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        details: (data.details as any) ?? null,
         ipAddress: data.ipAddress ?? null,
         userAgent: data.userAgent ?? null,
       },
@@ -45,9 +46,9 @@ export async function logRequestAudit(
   action: string,
   entity?: string,
   entityId?: string,
-  details?: any
+  details?: unknown
 ): Promise<void> {
-  const user = req.user;
+  const user = req.user as { id: string; email: string } | undefined;
 
   return logAudit({
     userId: user?.id ?? null,

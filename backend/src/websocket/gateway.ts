@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { verifyToken } from '../auth/auth.service.js';
-import { subClient, pubClient } from '../utils/redis.js';
 import logger from '../utils/logger.js';
+import { pubClient, subClient } from '../utils/redis.js';
 
 export const initWebSocketGateway = (io: Server) => {
   logger.info('Initializing WebSocket Gateway...');
@@ -16,15 +16,15 @@ export const initWebSocketGateway = (io: Server) => {
 
     try {
       const decoded = verifyToken(token.replace('Bearer ', ''));
-      (socket as any).userId = decoded.userId;
+      (socket as unknown as { userId: string }).userId = decoded.userId;
       next();
-    } catch (err) {
+    } catch (_err) {
       next(new Error('Authentication error: Invalid token'));
     }
   });
 
   io.on('connection', (socket: Socket) => {
-    const userId = (socket as any).userId;
+    const userId = (socket as unknown as { userId: string }).userId;
     logger.info(`User connected to WebSocket: ${userId} (Socket ID: ${socket.id})`);
 
     // Join a private room for the user
@@ -76,6 +76,6 @@ export const initWebSocketGateway = (io: Server) => {
 /**
  * Utility function to broadcast events from other parts of the backend
  */
-export const broadcastEvent = async (channel: string, data: any) => {
+export const broadcastEvent = async (channel: string, data: unknown) => {
   await pubClient.publish(channel, JSON.stringify(data));
 };

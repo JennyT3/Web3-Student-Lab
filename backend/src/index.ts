@@ -5,11 +5,16 @@ import { rateLimit } from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import prisma from './db/index.js';
-import './jobs/export.worker.js'; // Initialize BullMQ worker
 import { requestLogger } from './middleware/requestLogger.js';
 import routes from './routes/index.js';
 import { validateEnvironment } from './utils/checkEnv.js';
 import logger from './utils/logger.js';
+import { pubClient, redisConnection, subClient } from './utils/redis.js';
+
+if (process.env.NODE_ENV !== 'test') {
+  import('./jobs/export.worker.js'); // Initialize BullMQ worker
+}
+
 import { initWebSocketGateway } from './websocket/gateway.js';
 
 // Load environment variables
@@ -78,6 +83,11 @@ if (process.env.NODE_ENV !== 'test') {
   process.on('SIGINT', async () => {
     logger.info('Shutting down gracefully...');
     await prisma.$disconnect();
+    await Promise.all([
+      redisConnection.quit(),
+      pubClient.quit(),
+      subClient.quit(),
+    ]);
     server?.close(() => {
       logger.info('Server closed');
       process.exit(0);
@@ -87,6 +97,11 @@ if (process.env.NODE_ENV !== 'test') {
   process.on('SIGTERM', async () => {
     logger.info('Shutting down gracefully...');
     await prisma.$disconnect();
+    await Promise.all([
+      redisConnection.quit(),
+      pubClient.quit(),
+      subClient.quit(),
+    ]);
     server?.close(() => {
       logger.info('Server closed');
       process.exit(0);
