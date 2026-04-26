@@ -3,7 +3,6 @@
 import { NetworkGraph } from "@/components/simulator/NetworkGraph";
 import { useEffect, useState } from "react";
 
-
 interface Transaction {
   id: string;
   source: string;
@@ -74,22 +73,22 @@ export default function SimulatorPage() {
   }, [ledgers, isLive]);
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-black text-white p-6 md:p-12 relative overflow-hidden font-mono">
+    <div className="relative min-h-[calc(100vh-80px)] overflow-x-hidden bg-black p-4 font-mono text-white sm:p-6 md:p-12">
       {/* Background Grid Accent */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none"></div>
 
-      <div className="max-w-7xl mx-auto relative z-10 h-full flex flex-col">
+      <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
+        <div className="mb-8 flex flex-col items-start justify-between gap-6 md:mb-10 md:flex-row md:items-end">
           <div className="border-l-4 border-red-600 pl-6">
-            <h1 className="text-4xl font-black uppercase tracking-tighter mb-2">
+            <h1 className="mb-2 text-3xl font-black uppercase tracking-tighter sm:text-4xl">
               Network <span className="text-red-500">Simulator</span>
             </h1>
             <p className="text-xs text-gray-500 uppercase tracking-[0.3em]">
               Real-time Stellar Ledger Observer [v4.2.0]
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-white/10 rounded">
               <div
                 className={`w-2 h-2 rounded-full ${isLive ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
@@ -100,16 +99,16 @@ export default function SimulatorPage() {
             </div>
             <button
               onClick={() => setIsLive(!isLive)}
-              className="px-4 py-2 bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-colors"
+              className="min-h-11 px-4 py-2 bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-colors"
             >
               {isLive ? "Stop Sync" : "Start Sync"}
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 flex-grow h-[calc(100vh-250px)]">
+        <div className="grid flex-grow grid-cols-1 gap-6 xl:grid-cols-[minmax(13rem,0.85fr)_minmax(0,2fr)_minmax(14rem,1fr)] xl:gap-8 xl:min-h-[36rem] xl:h-[calc(100vh-250px)]">
           {/* Recent Ledgers */}
-          <div className="lg:col-span-1 bg-zinc-950 border border-white/10 p-6 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+          <div className="flex min-h-80 min-w-0 flex-col overflow-hidden rounded-xl border border-white/10 bg-zinc-950 p-4 shadow-2xl sm:p-6 xl:min-h-0">
             <h3 className="text-sm font-bold border-b border-white/10 pb-4 mb-6 uppercase tracking-widest flex items-center justify-between">
               Ledger Chain
               <span className="text-[10px] text-gray-600 font-normal">
@@ -146,19 +145,19 @@ export default function SimulatorPage() {
           </div>
 
           {/* Network Graph Visualizer */}
-          <div className="lg:col-span-2 flex flex-col h-full">
+          <div className="flex min-h-[28rem] min-w-0 flex-col xl:min-h-0 xl:h-full">
             <NetworkGraph transactions={transactions} />
           </div>
 
           {/* Live Transaction Stream */}
-          <div className="lg:col-span-1 bg-zinc-950 border border-white/10 p-6 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+          <div className="flex min-h-80 min-w-0 flex-col overflow-hidden rounded-xl border border-white/10 bg-zinc-950 p-4 shadow-2xl sm:p-6 xl:min-h-0">
             <h3 className="text-sm font-bold border-b border-white/10 pb-4 mb-6 uppercase tracking-widest flex items-center justify-between">
               TX Stream
               <span className="text-[10px] text-gray-600 font-normal">
                 Memory [50]
               </span>
             </h3>
-            <div className="flex-grow overflow-y-auto custom-scrollbar">
+            <div className="custom-scrollbar min-w-0 flex-grow overflow-y-auto">
               <table className="w-full text-left text-[11px] border-collapse">
                 <thead>
                   <tr className="text-gray-600 border-b border-white/5 uppercase tracking-widest">
@@ -176,7 +175,9 @@ export default function SimulatorPage() {
                       <td className="py-3 text-red-500 font-bold tracking-tighter">
                         {tx.id}
                       </td>
-                      <td className="py-3 font-bold text-gray-300">{tx.op}</td>
+                      <td className="py-3 font-bold text-gray-300 break-words">
+                        {tx.op}
+                      </td>
                       <td className="py-3 text-right">
                         <span
                           className={`px-2 py-0.5 rounded text-[9px] font-black ${
