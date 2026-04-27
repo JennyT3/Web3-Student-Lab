@@ -26,7 +26,7 @@ model Student {
   certificates  Certificate[]
   feedback      Feedback[]
   learningProgress LearningProgress[]
-  activities       StudentActivity[]
+  canvases      Canvas[]
 
   @@map("students")
   @@index([firstName, lastName])
@@ -151,6 +151,19 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model AuthNonce {
+  id            String   @id @default(cuid())
+  walletAddress String
+  nonce         String   @unique
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("auth_nonces")
+  @@index([walletAddress])
+  @@index([expiresAt])
+}
+
 model AnalyticsData {
   id                String   @id @default(cuid())
   metricType        String   // "USER_STAT", "COURSE_STAT", "ENROLLMENT_STAT"
@@ -164,17 +177,24 @@ model AnalyticsData {
   @@map("analytics_data")
 }
 
-model StudentActivity {
-  id        String   @id @default(cuid())
-  studentId String
-  courseId  String
-  lessonId  String
-  action    String   @default("COMPLETED_LESSON")
-  timestamp DateTime @default(now())
+model Canvas {
+  id          String   @id @default(cuid())
+  roomId      String   @unique
+  studentId   String
+  title       String
+  description String?
+  data        Json?    // Stores canvas state/shapes
+  isPublic    Boolean  @default(false)
+  collaborators String[] // Array of student IDs
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastModifiedBy String?
+  lastModifiedAt DateTime?
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  @@map("student_activities")
+  @@map("canvases")
+  @@index([roomId])
   @@index([studentId])
-  @@index([timestamp])
+  @@index([createdAt])
 }
