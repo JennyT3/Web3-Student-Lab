@@ -8,12 +8,14 @@
 #![no_std]
 
 pub mod admin;
+pub mod distribution_manager;
 pub mod enrollment;
 pub mod events;
 pub mod activity_log;
 pub mod statistics;
 pub mod payment_gateway;
 pub mod revocation;
+pub mod royalty_splitter;
 pub mod sai_wrapper;
 pub mod session;
 pub mod staking;
