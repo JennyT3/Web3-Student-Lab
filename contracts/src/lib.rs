@@ -8,6 +8,7 @@
 #![no_std]
 
 pub mod admin;
+pub mod dex_aggregator;
 pub mod enrollment;
 pub mod events;
 pub mod activity_log;
@@ -16,6 +17,7 @@ pub mod payment_gateway;
 pub mod paymaster;
 pub mod reputation_system;
 pub mod revocation;
+pub mod route_optimizer;
 pub mod scoring_algorithm;
 pub mod smart_wallet;
 pub mod sai_wrapper;
