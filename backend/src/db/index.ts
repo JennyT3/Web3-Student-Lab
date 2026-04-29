@@ -1,5 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import pg from 'pg';
 import { getDatabaseRoleForOperation } from './requestContext.js';
 
@@ -51,13 +51,69 @@ const readPool = hasDedicatedReadReplica
     })
   : writePool;
 
+import { getWorkspaceId } from '../middleware/WorkspaceContext.js';
+
 const writeAdapter = new PrismaPg(writePool);
 const readAdapter = hasDedicatedReadReplica ? new PrismaPg(readPool) : writeAdapter;
 
-const prismaWrite = globalForPrisma.prismaWrite ?? new PrismaClient({ adapter: writeAdapter });
-const prismaRead = hasDedicatedReadReplica
+const workspaceModels = [
+  'Student', 'Course', 'Certificate', 'Enrollment', 
+  'Feedback', 'LearningProgress', 'AuditLog', 'Canvas'
+];
+
+const workspaceExtension = Prisma.defineExtension({
+  name: 'workspace-isolation',
+  query: {
+    $allModels: {
+      async $allOperations({ model, operation, args, query }) {
+        if (!workspaceModels.includes(model)) {
+          return query(args);
+        }
+
+        const workspaceId = getWorkspaceId();
+        
+        // Only enforce workspaceId if one is set in the context
+        if (!workspaceId) {
+           throw new Error(`Strict Workspace Isolation: Missing workspace context for ${operation} on ${model}`);
+        }
+
+        if (['findFirst', 'findFirstOrThrow', 'findMany', 'count', 'aggregate', 'groupBy', 'update', 'updateMany', 'delete', 'deleteMany'].includes(operation)) {
+          args.where = { ...args.where, workspaceId };
+          return query(args);
+        }
+
+        if (['create', 'createMany'].includes(operation)) {
+          if (Array.isArray(args.data)) {
+            args.data = args.data.map((d: any) => ({ ...d, workspaceId }));
+          } else {
+            args.data = { ...args.data, workspaceId };
+          }
+          return query(args);
+        }
+
+        if (['findUnique', 'findUniqueOrThrow'].includes(operation)) {
+          const result = await query(args);
+          if (result && (result as any).workspaceId !== workspaceId) {
+            if (operation === 'findUniqueOrThrow') throw new Error('Record not found');
+            return null;
+          }
+          return result;
+        }
+
+        return query(args);
+      }
+    }
+  }
+});
+
+const basePrismaWrite = globalForPrisma.prismaWrite ?? new PrismaClient({ adapter: writeAdapter });
+const basePrismaRead = hasDedicatedReadReplica
   ? globalForPrisma.prismaRead ?? new PrismaClient({ adapter: readAdapter })
-  : prismaWrite;
+  : basePrismaWrite;
+
+const prismaWrite = basePrismaWrite.$extends(workspaceExtension) as unknown as PrismaClient;
+const prismaRead = basePrismaRead.$extends(workspaceExtension) as unknown as PrismaClient;
+
 
 const getClientForOperation = (operation: string): PrismaClient => {
   if (!hasDedicatedReadReplica) {
