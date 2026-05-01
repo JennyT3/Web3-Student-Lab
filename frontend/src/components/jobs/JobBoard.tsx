@@ -1,235 +1,602 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  BriefcaseIcon, 
-  CheckBadgeIcon, 
-  CurrencyDollarIcon, 
-  MapPinIcon, 
-  ClockIcon,
-  AcademicCapIcon,
-  ArrowRightIcon,
-  ShieldCheckIcon
-} from '@heroicons/react/24/outline';
+"use client";
+
+import { useState, useCallback } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Progress } from "@/components/ui/Progress";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/Alert";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
+
+// ── Types ──────────────────────────────────────────────────────────────────
+
+type JobStatus = "Open" | "InProgress" | "Completed" | "Disputed" | "Cancelled";
+type MilestoneStatus = "Pending" | "Submitted" | "Approved" | "Disputed";
+type SkillLevel = "Beginner" | "Intermediate" | "Advanced" | "Expert";
 
 interface Milestone {
   description: string;
-  amount: number;
-  completed: boolean;
+  payment: number;
+  status: MilestoneStatus;
 }
 
 interface Job {
   id: number;
   employer: string;
   title: string;
-  description: string;
   budget: number;
-  milestones: Milestone[];
+  escrowed: number;
   requiredSkills: string[];
-  status: 'Open' | 'InProgress' | 'Completed' | 'Disputed';
+  milestones: Milestone[];
+  applicant: string | null;
+  status: JobStatus;
+  deadline: number; // ledger
 }
 
-const JobBoard: React.FC = () => {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [activeTab, setActiveTab] = useState<'browse' | 'my-jobs' | 'verify'>('browse');
+interface SkillAttestation {
+  skill: string;
+  level: SkillLevel;
+  score: number;
+  expiresAt: number;
+}
 
-  useEffect(() => {
-    const dummyJobs: Job[] = [
-      {
-        id: 1,
-        employer: 'StellarDevHub',
-        title: 'Senior Soroban Developer',
-        description: 'We are looking for an expert in Rust and Soroban to build our core infrastructure...',
-        budget: 5000,
-        requiredSkills: ['Rust', 'Soroban', 'Stellar SDK'],
-        status: 'Open',
-        milestones: [
-          { description: 'Contract Architecture', amount: 1500, completed: false },
-          { description: 'Logic Implementation', amount: 2500, completed: false },
-          { description: 'Testing & Audit', amount: 1000, completed: false }
-        ]
-      },
-      {
-        id: 2,
-        employer: 'Web3 Academy',
-        title: 'Curriculum Designer',
-        description: 'Help us design the next generation of Web3 education materials...',
-        budget: 3000,
-        requiredSkills: ['Technical Writing', 'Blockchain Basics'],
-        status: 'InProgress',
-        milestones: [
-          { description: 'Intro Module', amount: 1000, completed: true },
-          { description: 'Advanced Module', amount: 2000, completed: false }
-        ]
-      }
-    ];
-    setJobs(dummyJobs);
-  }, []);
+interface SkillProfile {
+  owner: string;
+  attestations: SkillAttestation[];
+  badges: string[];
+}
+
+// ── Mock data ──────────────────────────────────────────────────────────────
+
+const MOCK_JOBS: Job[] = [
+  {
+    id: 0,
+    employer: "GBOSS...1234",
+    title: "Soroban Smart Contract Dev",
+    budget: 5000,
+    escrowed: 5000,
+    requiredSkills: ["Rust", "Soroban", "Blockchain"],
+    milestones: [
+      { description: "Contract design", payment: 1000, status: "Approved" },
+      { description: "Implementation", payment: 3000, status: "Submitted" },
+      { description: "Testing & audit", payment: 1000, status: "Pending" },
+    ],
+    applicant: "GWORK...5678",
+    status: "InProgress",
+    deadline: 1_200_000,
+  },
+  {
+    id: 1,
+    employer: "GBOSS...ABCD",
+    title: "Frontend Web3 Integration",
+    budget: 2000,
+    escrowed: 2000,
+    requiredSkills: ["React", "TypeScript", "Stellar SDK"],
+    milestones: [
+      { description: "UI mockups", payment: 500, status: "Pending" },
+      { description: "Integration", payment: 1500, status: "Pending" },
+    ],
+    applicant: null,
+    status: "Open",
+    deadline: 1_300_000,
+  },
+  {
+    id: 2,
+    employer: "GBOSS...EFGH",
+    title: "DeFi Protocol Audit",
+    budget: 8000,
+    escrowed: 0,
+    requiredSkills: ["Security", "Rust", "Soroban"],
+    milestones: [
+      { description: "Static analysis", payment: 3000, status: "Approved" },
+      { description: "Dynamic testing", payment: 3000, status: "Approved" },
+      { description: "Report", payment: 2000, status: "Approved" },
+    ],
+    applicant: "GWORK...9999",
+    status: "Completed",
+    deadline: 1_100_000,
+  },
+];
+
+const MOCK_PROFILE: SkillProfile = {
+  owner: "GWORK...5678",
+  attestations: [
+    { skill: "Rust", level: "Advanced", score: 88, expiresAt: 2_000_000 },
+    { skill: "Soroban", level: "Intermediate", score: 75, expiresAt: 2_000_000 },
+    { skill: "React", level: "Expert", score: 95, expiresAt: 2_000_000 },
+    { skill: "TypeScript", level: "Advanced", score: 82, expiresAt: 2_000_000 },
+  ],
+  badges: ["Rust", "React", "TypeScript"],
+};
+
+const CURRENT_LEDGER = 1_150_000;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+const STATUS_VARIANT: Record<JobStatus, "default" | "secondary" | "destructive" | "outline"> = {
+  Open: "default",
+  InProgress: "secondary",
+  Completed: "outline",
+  Disputed: "destructive",
+  Cancelled: "destructive",
+};
+
+const MS_VARIANT: Record<MilestoneStatus, "default" | "secondary" | "destructive" | "outline"> = {
+  Pending: "outline",
+  Submitted: "secondary",
+  Approved: "default",
+  Disputed: "destructive",
+};
+
+function milestoneProgress(milestones: Milestone[]): number {
+  const approved = milestones.filter((m) => m.status === "Approved").length;
+  return Math.round((approved / milestones.length) * 100);
+}
+
+function ledgersToLabel(ledger: number): string {
+  const diff = ledger - CURRENT_LEDGER;
+  if (diff <= 0) return "Expired";
+  const hours = Math.round((diff * 5) / 3600);
+  return hours < 24 ? `${hours}h left` : `${Math.round(hours / 24)}d left`;
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────────
+
+function JobCard({
+  job,
+  onApply,
+  onSelect,
+}: {
+  job: Job;
+  onApply: (id: number) => void;
+  onSelect: (job: Job) => void;
+}) {
+  return (
+    <Card
+      className="cursor-pointer transition-shadow hover:shadow-md"
+      onClick={() => onSelect(job)}
+    >
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-base">{job.title}</CardTitle>
+          <Badge variant={STATUS_VARIANT[job.status]}>{job.status}</Badge>
+        </div>
+        <CardDescription className="text-xs">{job.employer}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap gap-1">
+          {job.requiredSkills.map((s) => (
+            <Badge key={s} variant="outline" className="text-xs">
+              {s}
+            </Badge>
+          ))}
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-semibold">{job.budget.toLocaleString()} XLM</span>
+          <span className="text-muted-foreground">{ledgersToLabel(job.deadline)}</span>
+        </div>
+        {job.status === "InProgress" && (
+          <div>
+            <p className="mb-1 text-xs text-muted-foreground">
+              Progress: {milestoneProgress(job.milestones)}%
+            </p>
+            <Progress value={milestoneProgress(job.milestones)} />
+          </div>
+        )}
+        {job.status === "Open" && (
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onApply(job.id);
+            }}
+          >
+            Apply
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function JobDetail({
+  job,
+  onSubmitMilestone,
+  onApproveMilestone,
+  onDispute,
+}: {
+  job: Job;
+  onSubmitMilestone: (jobId: number, idx: number) => void;
+  onApproveMilestone: (jobId: number, idx: number) => void;
+  onDispute: (jobId: number, idx: number) => void;
+}) {
+  const escrowed = job.escrowed;
+  const paid = job.budget - escrowed;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Navigation */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-          <div>
-            <h1 className="text-5xl font-black tracking-tighter bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 bg-clip-text text-transparent">
-              DeWork Hub
-            </h1>
-            <p className="text-slate-400 mt-2 font-medium">Verified Skills. Guaranteed Payments. Zero Friction.</p>
-          </div>
-          <div className="flex bg-slate-900/50 p-1 rounded-2xl border border-slate-800 backdrop-blur-xl">
-            {(['browse', 'my-jobs', 'verify'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-6 py-2.5 rounded-xl text-sm font-bold capitalize transition-all ${
-                  activeTab === tab ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {tab.replace('-', ' ')}
-              </button>
-            ))}
-          </div>
-        </header>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">{job.title}</h2>
+        <Badge variant={STATUS_VARIANT[job.status]}>{job.status}</Badge>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-8 space-y-6">
-            {activeTab === 'browse' && (
-              <>
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="flex-1 relative">
-                    <input 
-                      type="text" 
-                      placeholder="Search jobs by skill, title, or employer..."
-                      className="w-full bg-slate-900/80 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-                    />
-                    <BriefcaseIcon className="w-5 h-5 absolute left-4 top-4.5 text-slate-500" />
-                  </div>
-                  <button className="bg-slate-800 hover:bg-slate-700 px-6 py-4 rounded-2xl font-bold transition-colors border border-slate-700">
-                    Filters
-                  </button>
-                </div>
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p className="text-muted-foreground">Employer</p>
+          <p className="font-mono text-xs">{job.employer}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Worker</p>
+          <p className="font-mono text-xs">{job.applicant ?? "—"}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Budget</p>
+          <p className="font-semibold">{job.budget.toLocaleString()} XLM</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Escrowed</p>
+          <p className="font-semibold">{escrowed.toLocaleString()} XLM</p>
+        </div>
+      </div>
 
-                {jobs.map(job => (
-                  <div key={job.id} className="group relative bg-slate-900/40 border border-slate-800/50 rounded-3xl p-8 hover:bg-slate-900/60 transition-all hover:border-indigo-500/50">
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 bg-indigo-600/20 rounded-2xl flex items-center justify-center text-indigo-400 font-black text-xl border border-indigo-500/20">
-                          {job.employer[0]}
-                        </div>
-                        <div>
-                          <h3 className="text-2xl font-bold group-hover:text-indigo-400 transition-colors">{job.title}</h3>
-                          <p className="text-slate-500 font-medium flex items-center gap-1">
-                            <ShieldCheckIcon className="w-4 h-4" /> {job.employer}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-black text-green-400">${job.budget}</p>
-                        <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mt-1">Escrowed</p>
-                      </div>
-                    </div>
+      <div>
+        <p className="mb-1 text-sm font-medium">
+          Paid out: {paid.toLocaleString()} / {job.budget.toLocaleString()} XLM
+        </p>
+        <Progress value={Math.round((paid / job.budget) * 100)} />
+      </div>
 
-                    <p className="text-slate-400 leading-relaxed mb-8 line-clamp-2">
-                      {job.description}
-                    </p>
+      <div>
+        <h3 className="mb-2 text-sm font-semibold">Required Skills</h3>
+        <div className="flex flex-wrap gap-1">
+          {job.requiredSkills.map((s) => (
+            <Badge key={s} variant="outline">
+              {s}
+            </Badge>
+          ))}
+        </div>
+      </div>
 
-                    <div className="flex flex-wrap gap-2 mb-8">
-                      {job.requiredSkills.map(skill => (
-                        <span key={skill} className="flex items-center gap-1.5 bg-indigo-950/40 text-indigo-300 px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-500/20">
-                          <CheckBadgeIcon className="w-3.5 h-3.5" /> {skill}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-6 border-t border-slate-800/50">
-                      <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
-                        <span className="flex items-center gap-1"><ClockIcon className="w-4 h-4" /> 3d left</span>
-                        <span className="flex items-center gap-1"><AcademicCapIcon className="w-4 h-4" /> 12 applications</span>
-                      </div>
-                      <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-8 py-3 rounded-xl font-black transition-all shadow-lg shadow-indigo-900/20 group-hover:scale-105">
-                        Apply Now <ArrowRightIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-4 space-y-8">
-            {/* User Profile / Skills */}
-            <div className="bg-gradient-to-br from-indigo-900/30 to-slate-900/50 border border-indigo-500/20 rounded-3xl p-8 backdrop-blur-xl">
-              <div className="flex items-center gap-4 mb-8">
-                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center font-black text-2xl border border-white/10">
-                  JD
-                </div>
-                <div>
-                  <h4 className="text-xl font-bold">John Doe</h4>
-                  <p className="text-indigo-400 text-sm font-bold flex items-center gap-1">
-                    <CheckBadgeIcon className="w-4 h-4" /> Level 4 Verified
-                  </p>
-                </div>
+      <div>
+        <h3 className="mb-2 text-sm font-semibold">Milestones</h3>
+        <div className="space-y-2">
+          {job.milestones.map((ms, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between rounded-md border p-3 text-sm"
+            >
+              <div>
+                <p className="font-medium">{ms.description}</p>
+                <p className="text-xs text-muted-foreground">
+                  {ms.payment.toLocaleString()} XLM
+                </p>
               </div>
-              
-              <h5 className="text-xs uppercase tracking-widest font-black text-slate-500 mb-4">Verified Skills</h5>
-              <div className="space-y-3">
-                {[
-                  { name: 'Rust', level: 92 },
-                  { name: 'Soroban', level: 85 },
-                  { name: 'Frontend', level: 78 }
-                ].map(skill => (
-                  <div key={skill.name} className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-sm font-bold">{skill.name}</span>
-                      <span className="text-xs font-black text-indigo-400">{skill.level}%</span>
-                    </div>
-                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${skill.level}%` }}></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button className="w-full mt-8 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 py-4 rounded-2xl font-black transition-all">
-                Update Skills
-              </button>
-            </div>
-
-            {/* Escrow Status */}
-            <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-8">
-              <div className="flex items-center gap-2 mb-6">
-                <ShieldCheckIcon className="w-6 h-6 text-green-400" />
-                <h3 className="text-xl font-bold">Safe-Pay Escrow</h3>
-              </div>
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-sm font-medium">Locked Funds</span>
-                  <span className="text-xl font-black">$4,500.00</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-sm font-medium">In Dispute</span>
-                  <span className="text-xl font-black text-red-400">$0.00</span>
-                </div>
-                <div className="pt-6 border-t border-slate-800">
-                  <p className="text-xs text-slate-500 font-bold mb-4">ACTIVE MILESTONES</p>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                      <span className="text-sm font-medium">Contract Init released</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-slate-700"></div>
-                      <span className="text-sm font-medium text-slate-500">UI Draft pending</span>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={MS_VARIANT[ms.status]}>{ms.status}</Badge>
+                {ms.status === "Pending" && job.applicant && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onSubmitMilestone(job.id, i)}
+                  >
+                    Submit
+                  </Button>
+                )}
+                {ms.status === "Submitted" && (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => onApproveMilestone(job.id, i)}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => onDispute(job.id, i)}
+                    >
+                      Dispute
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
   );
-};
+}
 
-export default JobBoard;
+function SkillProfilePanel({ profile }: { profile: SkillProfile }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="mb-2 text-sm font-semibold">Verified Badges</h3>
+        <div className="flex flex-wrap gap-2">
+          {profile.badges.map((b) => (
+            <Badge key={b} className="gap-1">
+              ✓ {b}
+            </Badge>
+          ))}
+        </div>
+      </div>
+      <div>
+        <h3 className="mb-2 text-sm font-semibold">Attestations</h3>
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted text-muted-foreground">
+              <tr>
+                <th className="px-4 py-2 text-left">Skill</th>
+                <th className="px-4 py-2 text-left">Level</th>
+                <th className="px-4 py-2 text-right">Score</th>
+                <th className="px-4 py-2 text-right">Expires</th>
+              </tr>
+            </thead>
+            <tbody>
+              {profile.attestations.map((a, i) => (
+                <tr key={i} className="border-t">
+                  <td className="px-4 py-2 font-medium">{a.skill}</td>
+                  <td className="px-4 py-2">
+                    <Badge variant="secondary">{a.level}</Badge>
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <span
+                      className={
+                        a.score >= 70 ? "text-green-600 font-semibold" : "text-destructive"
+                      }
+                    >
+                      {a.score}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-right text-xs text-muted-foreground">
+                    {ledgersToLabel(a.expiresAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────
+
+export default function JobBoard() {
+  const [tab, setTab] = useState("browse");
+  const [jobs, setJobs] = useState<Job[]>(MOCK_JOBS);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const notify = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleApply = useCallback(
+    (jobId: number) => {
+      notify(`Applied to job #${jobId}`);
+    },
+    []
+  );
+
+  const handleSubmitMilestone = useCallback(
+    (jobId: number, idx: number) => {
+      setJobs((prev) =>
+        prev.map((j) => {
+          if (j.id !== jobId) return j;
+          const milestones = j.milestones.map((m, i) =>
+            i === idx ? { ...m, status: "Submitted" as MilestoneStatus } : m
+          );
+          return { ...j, milestones };
+        })
+      );
+      setSelectedJob((prev) => {
+        if (!prev || prev.id !== jobId) return prev;
+        const milestones = prev.milestones.map((m, i) =>
+          i === idx ? { ...m, status: "Submitted" as MilestoneStatus } : m
+        );
+        return { ...prev, milestones };
+      });
+      notify(`Milestone ${idx + 1} submitted`);
+    },
+    []
+  );
+
+  const handleApproveMilestone = useCallback(
+    (jobId: number, idx: number) => {
+      setJobs((prev) =>
+        prev.map((j) => {
+          if (j.id !== jobId) return j;
+          const milestones = j.milestones.map((m, i) =>
+            i === idx ? { ...m, status: "Approved" as MilestoneStatus } : m
+          );
+          const allDone = milestones.every((m) => m.status === "Approved");
+          const paid = milestones
+            .filter((m) => m.status === "Approved")
+            .reduce((s, m) => s + m.payment, 0);
+          return {
+            ...j,
+            milestones,
+            escrowed: j.budget - paid,
+            status: allDone ? ("Completed" as JobStatus) : j.status,
+          };
+        })
+      );
+      setSelectedJob((prev) => {
+        if (!prev || prev.id !== jobId) return prev;
+        const milestones = prev.milestones.map((m, i) =>
+          i === idx ? { ...m, status: "Approved" as MilestoneStatus } : m
+        );
+        const allDone = milestones.every((m) => m.status === "Approved");
+        const paid = milestones
+          .filter((m) => m.status === "Approved")
+          .reduce((s, m) => s + m.payment, 0);
+        return {
+          ...prev,
+          milestones,
+          escrowed: prev.budget - paid,
+          status: allDone ? ("Completed" as JobStatus) : prev.status,
+        };
+      });
+      notify(`Milestone ${idx + 1} approved — payment released`);
+    },
+    []
+  );
+
+  const handleDispute = useCallback(
+    (jobId: number, idx: number) => {
+      setJobs((prev) =>
+        prev.map((j) => {
+          if (j.id !== jobId) return j;
+          const milestones = j.milestones.map((m, i) =>
+            i === idx ? { ...m, status: "Disputed" as MilestoneStatus } : m
+          );
+          return { ...j, milestones, status: "Disputed" as JobStatus };
+        })
+      );
+      setSelectedJob((prev) => {
+        if (!prev || prev.id !== jobId) return prev;
+        const milestones = prev.milestones.map((m, i) =>
+          i === idx ? { ...m, status: "Disputed" as MilestoneStatus } : m
+        );
+        return { ...prev, milestones, status: "Disputed" as JobStatus };
+      });
+      notify(`Dispute opened on milestone ${idx + 1}`);
+    },
+    []
+  );
+
+  const openJobs = jobs.filter((j) => j.status === "Open");
+  const activeJobs = jobs.filter((j) => j.status === "InProgress" || j.status === "Disputed");
+  const completedJobs = jobs.filter((j) => j.status === "Completed");
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-6 p-6">
+      <div>
+        <h1 className="text-3xl font-bold">Job Board</h1>
+        <p className="text-muted-foreground">
+          Decentralized jobs with on-chain skill verification and escrow payments.
+        </p>
+      </div>
+
+      {toast && (
+        <Alert>
+          <AlertTitle>✓</AlertTitle>
+          <AlertDescription>{toast}</AlertDescription>
+        </Alert>
+      )}
+
+      <Tabs>
+        <TabsList>
+          {["browse", "active", "profile"].map((t) => (
+            <TabsTrigger
+              key={t}
+              value={t}
+              data-state={tab === t ? "active" : "inactive"}
+              onClick={() => {
+                setTab(t);
+                setSelectedJob(null);
+              }}
+            >
+              {t === "browse"
+                ? `Browse (${openJobs.length})`
+                : t === "active"
+                ? `Active (${activeJobs.length})`
+                : "My Skills"}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {/* Browse tab */}
+        <TabsContent value="browse" className={tab !== "browse" ? "hidden" : ""}>
+          {selectedJob ? (
+            <div className="mt-4 space-y-4">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedJob(null)}>
+                ← Back
+              </Button>
+              <JobDetail
+                job={selectedJob}
+                onSubmitMilestone={handleSubmitMilestone}
+                onApproveMilestone={handleApproveMilestone}
+                onDispute={handleDispute}
+              />
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {openJobs.length === 0 && (
+                <p className="col-span-2 text-sm text-muted-foreground">
+                  No open jobs right now.
+                </p>
+              )}
+              {openJobs.map((j) => (
+                <JobCard
+                  key={j.id}
+                  job={j}
+                  onApply={handleApply}
+                  onSelect={setSelectedJob}
+                />
+              ))}
+              {completedJobs.map((j) => (
+                <JobCard
+                  key={j.id}
+                  job={j}
+                  onApply={handleApply}
+                  onSelect={setSelectedJob}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Active tab */}
+        <TabsContent value="active" className={tab !== "active" ? "hidden" : ""}>
+          {selectedJob ? (
+            <div className="mt-4 space-y-4">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedJob(null)}>
+                ← Back
+              </Button>
+              <JobDetail
+                job={selectedJob}
+                onSubmitMilestone={handleSubmitMilestone}
+                onApproveMilestone={handleApproveMilestone}
+                onDispute={handleDispute}
+              />
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {activeJobs.length === 0 && (
+                <p className="col-span-2 text-sm text-muted-foreground">
+                  No active jobs.
+                </p>
+              )}
+              {activeJobs.map((j) => (
+                <JobCard
+                  key={j.id}
+                  job={j}
+                  onApply={handleApply}
+                  onSelect={setSelectedJob}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Skills tab */}
+        <TabsContent value="profile" className={tab !== "profile" ? "hidden" : ""}>
+          <div className="mt-4">
+            <SkillProfilePanel profile={MOCK_PROFILE} />
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
