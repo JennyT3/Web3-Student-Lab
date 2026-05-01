@@ -1,343 +1,391 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowRightLeft, TrendingUp, Zap, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Alert } from '@/components/ui/Alert';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface Pool {
   id: number;
-  dex: string;
-  reserveA: number;
-  reserveB: number;
-  fee: number;
-  liquidity: number;
-}
-
-interface Route {
-  pools: number[];
-  price: number;
-  slippage: number;
+  name: string;
+  reserveIn: number;
+  reserveOut: number;
+  feeBps: number;
   gasCost: number;
-  netPrice: number;
-  efficiency: number;
-  priceImprovement: number;
-  mevRisk: number;
-  finalScore: number;
 }
 
-interface Split {
+interface RouteStep {
   poolId: number;
-  amount: number;
-  expectedOutput: number;
+  poolName: string;
+  allocation: number;
+  output: number;
+  gasCost: number;
 }
 
-export const AggregatorInterface: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'swap' | 'compare' | 'history'>('swap');
-  const [amountIn, setAmountIn] = useState<string>('');
-  const [selectedTokenIn, setSelectedTokenIn] = useState<string>('USDC');
-  const [selectedTokenOut, setSelectedTokenOut] = useState<string>('XLM');
-  const [routes, setRoutes] = useState<Route[]>([]);
-  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
-  const [splits, setSplits] = useState<Split[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [priceImprovementVsSingle, setPriceImprovementVsSingle] = useState<number>(0);
-  const [executionTime, setExecutionTime] = useState<number>(0);
-  const [pools, setPools] = useState<Pool[]>([]);
-  const [error, setError] = useState<string>('');
-  const [success, setSuccess] = useState<string>('');
+interface Quote {
+  amountIn: number;
+  grossOut: number;
+  netOut: number;
+  totalGas: number;
+  poolsUsed: number;
+  improvementBps: number;
+  route: RouteStep[];
+}
 
-  useEffect(() => {
-    const mockPools: Pool[] = [
-      { id: 1, dex: 'Stellar', reserveA: 1000000, reserveB: 1000000, fee: 30, liquidity: 2000000 },
-      { id: 2, dex: 'Meridian', reserveA: 500000, reserveB: 600000, fee: 50, liquidity: 1100000 },
-      { id: 3, dex: 'Soroswap', reserveA: 750000, reserveB: 800000, fee: 25, liquidity: 1550000 },
-      { id: 4, dex: 'Aquarius', reserveA: 300000, reserveB: 350000, fee: 100, liquidity: 650000 },
-    ];
-    setPools(mockPools);
-  }, []);
+interface Trade {
+  id: string;
+  timestamp: string;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: number;
+  netOut: number;
+  poolsUsed: number;
+  improvementBps: number;
+  status: 'pending' | 'success' | 'failed';
+}
 
-  const findBestRoute = async () => {
-    if (!amountIn || parseFloat(amountIn) <= 0) {
-      setError('Please enter a valid amount');
-      return;
-    }
+// ---------------------------------------------------------------------------
+// Mock data
+// ---------------------------------------------------------------------------
 
-    setLoading(true);
-    setError('');
-    setSuccess('');
+const MOCK_POOLS: Pool[] = [
+  { id: 0, name: 'Pool A', reserveIn: 1_000_000, reserveOut: 1_000_000, feeBps: 30, gasCost: 50 },
+  { id: 1, name: 'Pool B', reserveIn: 800_000, reserveOut: 1_200_000, feeBps: 25, gasCost: 60 },
+  { id: 2, name: 'Pool C', reserveIn: 1_200_000, reserveOut: 900_000, feeBps: 30, gasCost: 55 },
+];
 
-    try {
-      const amount = parseFloat(amountIn);
-      const mockRoutes: Route[] = pools.map((pool) => {
-        const k = pool.reserveA * pool.reserveB;
-        const newReserveA = pool.reserveA + amount;
-        const amountOut = pool.reserveB - (k / newReserveA);
-        const feeAmount = (amountOut * pool.fee) / 10000;
-        const netOutput = amountOut - feeAmount;
+const MOCK_TRADES: Trade[] = [
+  {
+    id: 'tx-1',
+    timestamp: '2026-04-29 09:45',
+    tokenIn: 'XLM',
+    tokenOut: 'USDC',
+    amountIn: 10_000,
+    netOut: 9_950,
+    poolsUsed: 2,
+    improvementBps: 120,
+    status: 'success',
+  },
+  {
+    id: 'tx-2',
+    timestamp: '2026-04-28 14:20',
+    tokenIn: 'USDC',
+    tokenOut: 'XLM',
+    amountIn: 5_000,
+    netOut: 5_020,
+    poolsUsed: 1,
+    improvementBps: 0,
+    status: 'success',
+  },
+];
 
-        const slippage = Math.floor(((amount - netOutput) * 10000) / amount);
-        const gasCost = 1000 + (pool.fee / 10);
-        const netPrice = netOutput - gasCost;
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-        return {
-          pools: [pool.id],
-          price: netOutput,
-          slippage,
-          gasCost,
-          netPrice,
-          efficiency: Math.floor((netOutput / amount) * 10000),
-          priceImprovement: Math.floor(((netOutput - amount) * 10000) / amount),
-          mevRisk: Math.floor((amount * 10000) / pool.liquidity),
-          finalScore: Math.floor(
-            ((netOutput * 50) / 100) +
-            ((30 * 10000) / (gasCost + 1)) / 10000 +
-            (((10000 - (amount * 10000) / pool.liquidity) * 15) / 10000) +
-            5
-          ),
-        };
-      });
+function formatNumber(n: number): string {
+  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
 
-      mockRoutes.sort((a, b) => b.finalScore - a.finalScore);
-      setRoutes(mockRoutes);
+function formatBps(bps: number): string {
+  return (bps / 100).toFixed(2) + '%';
+}
 
-      if (mockRoutes.length > 0) {
-        const bestRoute = mockRoutes[0];
-        setSelectedRoute(bestRoute);
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
 
-        const mockSplits: Split[] = bestRoute.pools.map((poolId) => ({
-          poolId,
-          amount: amount / bestRoute.pools.length,
-          expectedOutput: bestRoute.price / bestRoute.pools.length,
-        }));
-        setSplits(mockSplits);
-
-        const singleDexPrice = mockRoutes[mockRoutes.length - 1].price;
-        const improvement = ((bestRoute.netPrice - singleDexPrice) / singleDexPrice) * 100;
-        setPriceImprovementVsSingle(improvement);
-        setExecutionTime(Math.floor(Math.random() * 800) + 200);
-
-        setSuccess(`Found optimal route with ${bestRoute.finalScore} score`);
-      }
-    } catch (err) {
-      setError('Failed to find best route');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const executeSwap = async () => {
-    if (!selectedRoute || !amountIn) {
-      setError('Please select a route first');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const amount = parseFloat(amountIn);
-      const success = amount <= 100000;
-
-      if (success) {
-        setSuccess(`Swap executed successfully! Received ${selectedRoute.price.toFixed(2)} ${selectedTokenOut}`);
-        setAmountIn('');
-      } else {
-        setError('Swap execution failed: Amount exceeds liquidity');
-      }
-    } catch (err) {
-      setError('Failed to execute swap');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+function RouteVisualization({ route }: { route: RouteStep[] }) {
+  const total = route.reduce((s, r) => s + r.allocation, 0);
   return (
-    <div className="w-full max-w-6xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">DEX Aggregator</h1>
-            <p className="text-gray-600 mt-2">Find the best prices across multiple decentralized exchanges</p>
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-muted-foreground">Route Breakdown</p>
+      {route.map((step) => {
+        const pct = total > 0 ? Math.round((step.allocation / total) * 100) : 0;
+        return (
+          <div key={step.poolId} className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium">{step.poolName}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {formatNumber(step.allocation)} ({pct}%)
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-blue-500"
+                style={{ width: `${pct}%` }}
+                role="progressbar"
+                aria-valuenow={pct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Output: {formatNumber(step.output)} · Gas: {formatNumber(step.gasCost)}
+            </p>
           </div>
-          <TrendingUp className="w-10 h-10 text-blue-600" />
+        );
+      })}
+    </div>
+  );
+}
+
+function PriceComparison({ quote }: { quote: Quote | null }) {
+  if (!quote) return null;
+  const singlePoolOut = quote.grossOut - quote.improvementBps * quote.grossOut / 10_000;
+  return (
+    <div className="grid grid-cols-2 gap-3 rounded-md border p-3 text-sm">
+      <div>
+        <p className="text-xs text-muted-foreground">Best Single Pool</p>
+        <p className="font-semibold tabular-nums">{formatNumber(singlePoolOut)}</p>
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground">Split Route</p>
+        <p className="font-semibold tabular-nums text-green-600">{formatNumber(quote.netOut)}</p>
+      </div>
+      {quote.improvementBps > 0 && (
+        <div className="col-span-2 flex items-center gap-2 border-t pt-2">
+          <Badge variant="default" className="text-xs">
+            +{formatBps(quote.improvementBps)} better
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            Saved: {formatNumber(quote.netOut - singlePoolOut)}
+          </span>
         </div>
+      )}
+    </div>
+  );
+}
 
-        <div className="flex space-x-4 mb-6 border-b border-gray-200">
-          {(['swap', 'compare', 'history'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === tab
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {tab === 'swap' && 'Swap'}
-              {tab === 'compare' && 'Price Comparison'}
-              {tab === 'history' && 'History'}
-            </button>
-          ))}
-        </div>
-
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <p className="text-red-700">{error}</p>
-          </div>
+function TradeRow({ trade }: { trade: Trade }) {
+  const statusColor: Record<Trade['status'], string> = {
+    success: 'bg-green-100 text-green-800',
+    failed: 'bg-red-100 text-red-800',
+    pending: 'bg-yellow-100 text-yellow-800',
+  };
+  return (
+    <div className="flex items-center justify-between border-b py-2 last:border-0">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">
+          {formatNumber(trade.amountIn)} {trade.tokenIn} → {formatNumber(trade.netOut)} {trade.tokenOut}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {trade.timestamp} · {trade.poolsUsed} pool{trade.poolsUsed > 1 ? 's' : ''}
+        </p>
+      </div>
+      <div className="ml-3 flex flex-shrink-0 items-center gap-2">
+        {trade.improvementBps > 0 && (
+          <Badge variant="secondary" className="text-xs">
+            +{formatBps(trade.improvementBps)}
+          </Badge>
         )}
-        {success && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-700">{success}</p>
-          </div>
-        )}
-
-        {activeTab === 'swap' && (
-          <div className="space-y-6">
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <label className="block text-sm font-medium text-gray-700 mb-2">You send</label>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    value={amountIn}
-                    onChange={(e) => setAmountIn(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <select
-                  value={selectedTokenIn}
-                  onChange={(e) => setSelectedTokenIn(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg bg-white"
-                >
-                  <option>USDC</option>
-                  <option>XLM</option>
-                  <option>USDT</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-center">
-              <button className="p-2 bg-blue-100 rounded-full hover:bg-blue-200 transition">
-                <ArrowRightLeft className="w-6 h-6 text-blue-600" />
-              </button>
-            </div>
-
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <label className="block text-sm font-medium text-gray-700 mb-2">You receive</label>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <div className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-500">
-                    {selectedRoute ? selectedRoute.price.toFixed(6) : '0.00'}
-                  </div>
-                </div>
-                <select
-                  value={selectedTokenOut}
-                  onChange={(e) => setSelectedTokenOut(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg bg-white"
-                >
-                  <option>XLM</option>
-                  <option>USDC</option>
-                  <option>USDT</option>
-                </select>
-              </div>
-            </div>
-
-            {selectedRoute && (
-              <div className="grid grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg">
-                <div>
-                  <p className="text-sm text-gray-600">Price Improvement</p>
-                  <p className="text-lg font-semibold text-blue-600">
-                    {priceImprovementVsSingle > 0 ? '+' : ''}{priceImprovementVsSingle.toFixed(2)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Execution Time</p>
-                  <p className="text-lg font-semibold text-blue-600">{executionTime}ms</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Gas Cost</p>
-                  <p className="text-lg font-semibold text-blue-600">{selectedRoute.gasCost.toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">MEV Risk</p>
-                  <p className={`text-lg font-semibold ${selectedRoute.mevRisk < 1000 ? 'text-green-600' : 'text-yellow-600'}`}>
-                    {(selectedRoute.mevRisk / 100).toFixed(2)}%
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={findBestRoute}
-                disabled={loading}
-                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 transition flex items-center justify-center gap-2"
-              >
-                <Zap className="w-5 h-5" />
-                {loading ? 'Finding route...' : 'Find Best Route'}
-              </button>
-              <button
-                onClick={executeSwap}
-                disabled={!selectedRoute || loading}
-                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:bg-gray-400 transition"
-              >
-                {loading ? 'Executing...' : 'Execute Swap'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'compare' && (
-          <div className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">DEX</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Price</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Slippage</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Gas Cost</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Net Price</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {routes.map((route, idx) => (
-                    <tr
-                      key={idx}
-                      className={`border-b border-gray-200 cursor-pointer hover:bg-gray-50 ${
-                        selectedRoute === route ? 'bg-blue-50' : ''
-                      }`}
-                      onClick={() => setSelectedRoute(route)}
-                    >
-                      <td className="px-4 py-3 font-medium">{pools[route.pools[0] - 1]?.dex}</td>
-                      <td className="px-4 py-3">{route.price.toFixed(6)}</td>
-                      <td className="px-4 py-3">{(route.slippage / 100).toFixed(2)}%</td>
-                      <td className="px-4 py-3">{route.gasCost.toFixed(2)}</td>
-                      <td className="px-4 py-3 font-semibold">{route.netPrice.toFixed(6)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-lg text-white text-xs font-bold ${
-                          route.finalScore > 50 ? 'bg-green-600' : route.finalScore > 30 ? 'bg-yellow-600' : 'bg-red-600'
-                        }`}>
-                          {route.finalScore}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'history' && (
-          <div className="text-center py-12">
-            <p className="text-gray-600">No swap history yet</p>
-          </div>
-        )}
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[trade.status]}`}>
+          {trade.status}
+        </span>
       </div>
     </div>
   );
-};
+}
+
+// ---------------------------------------------------------------------------
+// Main interface
+// ---------------------------------------------------------------------------
+
+export function AggregatorInterface() {
+  const [tokenIn, setTokenIn] = useState('XLM');
+  const [tokenOut, setTokenOut] = useState('USDC');
+  const [amountIn, setAmountIn] = useState('');
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [trades] = useState<Trade[]>(MOCK_TRADES);
+  const [activeTab, setActiveTab] = useState('swap');
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const showNotice = (msg: string) => {
+    setNotice(msg);
+    setTimeout(() => setNotice(null), 3000);
+  };
+
+  const handleGetQuote = () => {
+    const amount = parseFloat(amountIn);
+    if (!amount || amount <= 0) return;
+
+    // Mock quote calculation
+    const grossOut = amount * 0.995;
+    const totalGas = 150;
+    const netOut = grossOut - totalGas;
+    const improvementBps = 120;
+
+    const route: RouteStep[] = [
+      { poolId: 0, poolName: 'Pool A', allocation: amount * 0.6, output: netOut * 0.6, gasCost: 50 },
+      { poolId: 1, poolName: 'Pool B', allocation: amount * 0.4, output: netOut * 0.4, gasCost: 60 },
+    ];
+
+    setQuote({
+      amountIn: amount,
+      grossOut,
+      netOut,
+      totalGas,
+      poolsUsed: 2,
+      improvementBps,
+      route,
+    });
+  };
+
+  const handleExecute = () => {
+    if (!quote) return;
+    showNotice(`Swap executed: ${formatNumber(quote.amountIn)} ${tokenIn} → ${formatNumber(quote.netOut)} ${tokenOut}`);
+    setQuote(null);
+    setAmountIn('');
+  };
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-4 p-4">
+      <div>
+        <h1 className="text-2xl font-bold">DEX Aggregator</h1>
+        <p className="text-sm text-muted-foreground">Best price routing across multiple pools</p>
+      </div>
+
+      {notice && <Alert variant="default">{notice}</Alert>}
+
+      <Tabs>
+        <TabsList className="w-full justify-start">
+          {['swap', 'pools', 'history'].map((tab) => (
+            <TabsTrigger
+              key={tab}
+              value={tab}
+              data-state={activeTab === tab ? 'active' : 'inactive'}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {/* Swap */}
+        <TabsContent value="swap" hidden={activeTab !== 'swap'}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Swap Tokens</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Input */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">You pay</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    className="flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="0.00"
+                    value={amountIn}
+                    onChange={(e) => setAmountIn(e.target.value)}
+                    aria-label="Amount to swap"
+                  />
+                  <select
+                    className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={tokenIn}
+                    onChange={(e) => setTokenIn(e.target.value)}
+                    aria-label="Input token"
+                  >
+                    <option>XLM</option>
+                    <option>USDC</option>
+                    <option>BTC</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Output */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">You receive</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 rounded-md border bg-muted px-3 py-2 text-sm"
+                    placeholder="0.00"
+                    value={quote ? formatNumber(quote.netOut) : ''}
+                    readOnly
+                    aria-label="Amount to receive"
+                  />
+                  <select
+                    className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={tokenOut}
+                    onChange={(e) => setTokenOut(e.target.value)}
+                    aria-label="Output token"
+                  >
+                    <option>USDC</option>
+                    <option>XLM</option>
+                    <option>BTC</option>
+                  </select>
+                </div>
+              </div>
+
+              <Button className="w-full" onClick={handleGetQuote} disabled={!amountIn}>
+                Get Quote
+              </Button>
+
+              {quote && (
+                <>
+                  <PriceComparison quote={quote} />
+                  <RouteVisualization route={quote.route} />
+                  <div className="flex items-center justify-between rounded-md border p-3 text-xs">
+                    <span className="text-muted-foreground">Total gas cost</span>
+                    <span className="font-medium tabular-nums">{formatNumber(quote.totalGas)}</span>
+                  </div>
+                  <Button className="w-full" variant="default" onClick={handleExecute}>
+                    Execute Swap
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Pools */}
+        <TabsContent value="pools" hidden={activeTab !== 'pools'}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Registered Pools</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {MOCK_POOLS.map((pool) => (
+                <div key={pool.id} className="flex items-center justify-between border-b py-3 last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">{pool.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Fee: {formatBps(pool.feeBps)} · Gas: {formatNumber(pool.gasCost)}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs">
+                    <p className="text-muted-foreground">Reserves</p>
+                    <p className="font-mono">{formatNumber(pool.reserveIn)} / {formatNumber(pool.reserveOut)}</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* History */}
+        <TabsContent value="history" hidden={activeTab !== 'history'}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Trade History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {trades.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No trades yet.</p>
+              ) : (
+                trades.map((trade) => <TradeRow key={trade.id} trade={trade} />)
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
 
 export default AggregatorInterface;
